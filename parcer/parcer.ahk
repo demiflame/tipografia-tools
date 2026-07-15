@@ -1,155 +1,339 @@
 #Requires AutoHotkey v2.0
 
+global DebugTotal := 0
+global DebugParsed := 0
+global DebugErrors := ""
+
 ; ============================================
-; Преобразование текста КП в таблицу
-; Ctrl+Shift+X
+; CTRL+SHIFT+X
+; КП -> Таблица
 ; ============================================
 ^+x::
 {
+    global DebugTotal, DebugParsed, DebugErrors
+
+    DebugTotal := 0
+    DebugParsed := 0
+    DebugErrors := ""
+
     text := A_Clipboard
-    
-    if (text = "") {
-        MsgBox("Буфер обмена пуст!", "Ошибка", "Icon!")
+
+    if (Trim(text) = "")
+    {
+        MsgBox("Буфер обмена пуст!")
         return
     }
-    
-    lines := StrSplit(text, "`n")
+
     result := []
-    
-    result.Push("Наименование`tКоличество`tЦена`tСтоимость")
-    
-    for line in lines {
+
+    lines := StrSplit(text, "`n", "`r")
+
+    pendingName := ""
+
+    for line in lines
+    {
         line := Trim(line)
+
         if (line = "")
             continue
-        if (RegExMatch(line, "i)^Итого\s+\d"))
+
+        if RegExMatch(line, "i)^итого")
             continue
-        
+
+        DebugTotal++
+
+        ; двухстрочная позиция
+        if !RegExMatch(line, "i)(шт|руб|р/шт|/шт)")
+        {
+            pendingName := line
+            continue
+        }
+
+        if (pendingName != "" && !InStr(line, "-"))
+        {
+            line := pendingName " - " line
+            pendingName := ""
+        }
+
         parsed := ParseKPLine(line)
-        if (parsed) {
-            result.Push(parsed.name "`t" parsed.qty "`t" parsed.price "`t" parsed.total)
+
+        if IsObject(parsed)
+        {
+            result.Push(
+                parsed.name "`t"
+                parsed.qty "`t"
+                parsed.price "`t"
+                parsed.total
+            )
+
+            DebugParsed++
+        }
+        else
+        {
+            DebugErrors .= line "`r`n"
         }
     }
-    
-    ; Собираем строки через цикл
+
     output := ""
-    for i, item in result {
+
+    for i, row in result
+    {
         if (i > 1)
-            output .= "`n"
-        output .= item
+            output .= "`r`n"
+
+        output .= row
     }
-    
+
     A_Clipboard := output
-    
-    ToolTip("Текст преобразован в таблицу!")
-    SetTimer(() => ToolTip(), -2000)
+
+    ToolTip("КП -> Таблица")
+    SetTimer(() => ToolTip(), -1500)
 }
 
 ; ============================================
-; Преобразование таблицы обратно в текст КП
-; Ctrl+Shift+C
+; CTRL+SHIFT+C
+; Таблица -> КП
 ; ============================================
 ^+c::
 {
     text := A_Clipboard
-    
-    if (text = "") {
-        MsgBox("Буфер обмена пуст!", "Ошибка", "Icon!")
+
+    if (Trim(text) = "")
+    {
+        MsgBox("Буфер обмена пуст!")
         return
     }
-    
-    lines := StrSplit(text, "`n")
+
+    lines := StrSplit(text, "`n", "`r")
+
     result := []
-    
-    for line in lines {
+
+    grandTotal := 0
+
+    for line in lines
+    {
         line := Trim(line)
+
         if (line = "")
             continue
-        if (RegExMatch(line, "i)^Наименование"))
+
+        if RegExMatch(line, "i)^наименование")
             continue
-        
+
         parts := StrSplit(line, "`t")
-        
-        if (parts.Length >= 4) {
-            name := Trim(parts[1])
-            qty := Trim(parts[2])
-            price := Trim(parts[3])
+
+        if (parts.Length < 3)
+            continue
+
+        name := Trim(parts[1])
+        qty := Trim(parts[2])
+        price := Trim(parts[3])
+
+        if (parts.Length >= 4 && Trim(parts[4]) != "")
+        {
             total := Trim(parts[4])
-            
-            result.Push(name " - " qty "шт х " price " руб/шт = " total " руб")
         }
+        else
+        {
+            q := ToNumber(qty)
+            p := ToNumber(price)
+
+            total := FormatNum(Round(q * p, 2))
+        }
+
+        grandTotal += ToNumber(total)
+
+        result.Push(
+            name
+            . " - "
+            . qty
+            . "шт х "
+            . price
+            . " руб/шт = "
+            . total
+            . " руб"
+        )
     }
-    
-    ; Собираем строки через цикл
+
     output := ""
-    for i, item in result {
+
+    for i, row in result
+    {
         if (i > 1)
-            output .= "`n"
-        output .= item
+            output .= "`r`n"
+
+        output .= row
     }
-    
+
+    output .= "`r`n`r`n"
+    output .= "Итого к оплате - "
+    output .= FormatNum(grandTotal)
+    output .= " руб"
+    output .= "`r`n`r`n"
+    output .= "Оплата наличными / счет на Юр. лицо"
+
     A_Clipboard := output
-    
-    ToolTip("Таблица преобразована в текст КП!")
-    SetTimer(() => ToolTip(), -2000)
+
+    ToolTip("Таблица -> КП")
+    SetTimer(() => ToolTip(), -1500)
 }
 
 ; ============================================
-; Функция парсинга строки КП
+; CTRL+SHIFT+D
+; Отладка
 ; ============================================
-ParseKPLine(line) {
-    ; Убираем пробелы-разделители тысяч ("3 066" → "3066")
+^+d::
+{
+    global DebugTotal, DebugParsed, DebugErrors
+
+    msg :=
+    (
+    "Всего строк: " DebugTotal "`n"
+    "Распознано: " DebugParsed "`n`n"
+    "Не распознано:`n`n"
+    DebugErrors
+    )
+
+    MsgBox(msg)
+}
+
+; ============================================
+; ПАРСЕР
+; ============================================
+ParseKPLine(line)
+{
+    ; убрать пробелы в тысячах
     line := RegExReplace(line, "(\d)\s+(\d)", "$1$2")
-    
-    ; Ищем название (всё до первого "-" за которым следует число)
-    if (!RegExMatch(line, "^(.+?)\s*-\s*(\d)", &match))
-        return 0
-    
-    name := Trim(match[1])
-    rest := SubStr(line, match.Pos(2))
-    
-    ; Ищем количество
-    qty := 1
-    if (RegExMatch(rest, "(\d+(?:[.,]\d+)?)\s*шт", &matchQty)) {
-        qty := Number(StrReplace(matchQty[1], ",", "."))
+line := StrReplace(line, "—", "-")
+line := StrReplace(line, "–", "-")
+    ; --------------------------------
+    ; ручка 85 руб/шт х 50 шт = 4250 руб
+    ; --------------------------------
+
+    if RegExMatch(
+        line,
+        "^(.*?)\s+(\d+(?:[.,]\d+)?)\s*(?:р(?:уб)?\s*/?\s*шт|р/шт)\s*[хx]\s*(\d+)\s*шт(?:\s*=\s*(\d+(?:[.,]\d+)?))?",
+        &m)
+    {
+        return MakeResult(
+            Trim(m[1]),
+            m[3],
+            m[2],
+            m[4]
+        )
     }
-    
-    ; Ищем цену за штуку
-    price := 0
-    if (RegExMatch(rest, "(\d+(?:[.,]\d+)?)\s*(?:р|руб)/шт", &matchPrice)) {
-        price := Number(StrReplace(matchPrice[1], ",", "."))
-    } else if (RegExMatch(rest, "х\s*(\d+(?:[.,]\d+)?)\s*(?:р|руб)", &matchPrice)) {
-        price := Number(StrReplace(matchPrice[1], ",", "."))
-    } else if (RegExMatch(rest, "-\s*(\d+(?:[.,]\d+)?)\s*(?:р|руб)", &matchPrice)) {
-        price := Number(StrReplace(matchPrice[1], ",", "."))
-        qty := 1
+
+    ; --------------------------------
+    ; название - 10шт х 420р/шт
+    ; --------------------------------
+
+    if RegExMatch(
+        line,
+        "^(.*?)\s*-\s*(\d+)\s*шт\s*[хx]\s*(\d+(?:[.,]\d+)?)\s*(?:р(?:уб)?\s*/?\s*шт|р/шт)(?:\s*=\s*(\d+(?:[.,]\d+)?))?",
+        &m)
+    {
+        return MakeResult(
+            Trim(m[1]),
+            m[2],
+            m[3],
+            m[4]
+        )
     }
-    
-    ; Ищем итоговую стоимость
-    total := 0
-    if (RegExMatch(rest, "=\s*(\d+(?:[.,]\d+)?)\s*(?:р|руб)", &matchTotal)) {
-        total := Number(StrReplace(matchTotal[1], ",", "."))
-    } else if (price > 0 && qty > 0) {
-        total := Round(price * qty, 2)
+
+    ; --------------------------------
+    ; название - 420р/шт х 10шт
+    ; --------------------------------
+
+    if RegExMatch(
+        line,
+        "^(.*?)\s*-\s*(\d+(?:[.,]\d+)?)\s*(?:р(?:уб)?\s*/?\s*шт|р/шт)\s*[хx]\s*(\d+)\s*шт(?:\s*=\s*(\d+(?:[.,]\d+)?))?",
+        &m)
+    {
+        return MakeResult(
+            Trim(m[1]),
+            m[3],
+            m[2],
+            m[4]
+        )
     }
-    
-    if (price = 0 && total = 0)
-        return 0
-    
-    ; Форматируем числа с запятой для русского формата
-    qtyStr := FormatNum(qty)
-    priceStr := FormatNum(price)
-    totalStr := FormatNum(total)
-    
-    return {name: name, qty: qtyStr, price: priceStr, total: totalStr}
+
+    ; --------------------------------
+    ; ролл ап - 6300 руб/шт
+    ; --------------------------------
+
+    if RegExMatch(
+        line,
+        "^(.*?)\s*-\s*(\d+(?:[.,]\d+)?)\s*(?:р(?:уб)?\s*/?\s*шт|р/шт)$",
+        &m)
+    {
+        return MakeResult(
+            Trim(m[1]),
+            1,
+            m[2],
+            m[2]
+        )
+    }
+
+    ; --------------------------------
+    ; А4 - 50руб
+    ; --------------------------------
+
+    if RegExMatch(
+        line,
+        "^(.*?)\s*-\s*(\d+(?:[.,]\d+)?)\s*(?:р|руб)$",
+        &m)
+    {
+        return MakeResult(
+            Trim(m[1]),
+            1,
+            m[2],
+            m[2]
+        )
+    }
+
+    return 0
 }
 
-; Вспомогательная функция: число → строка с запятой вместо точки
-FormatNum(n) {
-    if (n = Floor(n)) {
-        s := Format("{:d}", Integer(n))
-    } else {
-        s := Format("{:g}", n)
+; ============================================
+; СОЗДАНИЕ ОБЪЕКТА
+; ============================================
+MakeResult(name, qty, price, total)
+{
+    qtyNum := ToNumber(qty)
+    priceNum := ToNumber(price)
+
+    if (total = "")
+        totalNum := Round(qtyNum * priceNum, 2)
+    else
+        totalNum := ToNumber(total)
+
+    return {
+        name: name,
+        qty: FormatNum(qtyNum),
+        price: FormatNum(priceNum),
+        total: FormatNum(totalNum)
     }
-    return StrReplace(s, ".", ",")
+}
+
+; ============================================
+; ЧИСЛО ИЗ СТРОКИ
+; ============================================
+ToNumber(val)
+{
+    val := Trim(val)
+    val := StrReplace(val, " ", "")
+    val := StrReplace(val, ",", ".")
+
+    return val + 0
+}
+
+; ============================================
+; ФОРМАТИРОВАНИЕ
+; ============================================
+FormatNum(n)
+{
+    if (n = Floor(n))
+        return Integer(n)
+
+    return StrReplace(Format("{:g}", n), ".", ",")
 }

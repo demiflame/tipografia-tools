@@ -118,6 +118,8 @@ main{max-width:1180px;margin:0 auto;padding:14px 14px 40px;}
 .result-total{font-size:28px;font-weight:800;color:var(--coral);margin:8px 0 2px;font-variant-numeric:tabular-nums;}
 .result-specs{font-size:12.5px;color:var(--ink-soft);margin:10px 0 14px;line-height:1.5;}
 .result-actions{display:flex;flex-direction:column;gap:8px;}
+.result-copy-row{display:flex;gap:6px;}
+.result-copy-row .btn{flex:1;}
 .corners{position:relative;padding:14px;}
 .corner{position:absolute;width:11px;height:11px;border:0;}
 .corner.tl{top:4px;left:4px;border-top:2px solid var(--coral);border-left:2px solid var(--coral);}
@@ -813,16 +815,19 @@ const PRODUCTS = [
     }
     const total = (price*cutCoef*area + pocketCost)*(1+v.markup/100)*(1-v.discount/100)*v.qty;
     const w=v.width, h=v.height;
-    let specs;
+    let specs, specsGoods;
     if (v.pvcType==="Стенд"){
       const pocketPart = (v.pocketFormat!=="Нет") ? ` с карманами ${v.pocketFormat} ${v.pocketQty||1}шт` : "";
       specs = `Изготовление стенда из ПВХ ${v.thickness}, ${w}х${h} мм${pocketPart}`;
+      specsGoods = `Стенд из ПВХ ${v.thickness}, ${w}х${h} мм${pocketPart}`;
     } else if (v.pvcType==="Табличка"){
       specs = `Изготовление таблички из ПВХ ${v.thickness}, ${w}х${h} мм`;
+      specsGoods = `Табличка из ПВХ ${v.thickness}, ${w}х${h} мм`;
     } else {
       specs = `Изготовление ПВХ ${v.thickness}, ${w}х${h} мм`;
+      specsGoods = `Изделие из ПВХ ${v.thickness}, ${w}х${h} мм`;
     }
-    return {total, qty:v.qty, unitPrice: total/v.qty, specs};
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
   }
 },
 
@@ -868,22 +873,30 @@ const PRODUCTS = [
       const price = (P.medals[v.medalThickness]||{})[v.medalSize] || 0;
       const total = price*v.qty;
       const fasten = v.medalFastening!=="Нет" ? `, с лентой атлас 24мм, крепление люверс` : "";
-      return {total, qty:v.qty, unitPrice: total/v.qty,
-        specs:`Изготовление медали из акрила ${v.medalThickness} ${v.medalSize}, с УФ печатью${fasten}`};
+      // Конвертация "6 см" → "60х60 мм"
+      const sizeMm = (() => {
+        const n = parseFloat(v.medalSize);
+        return isNaN(n) ? v.medalSize : `${n*10}х${n*10} мм`;
+      })();
+      const specs = `Изготовление медали из акрила ${v.medalThickness} ${v.medalSize}, с УФ печатью${fasten}`;
+      const specsGoods = `Медаль ${v.medalThickness} ${sizeMm} из акрила, с УФ печатью${fasten}`;
+      return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
     }
     if (v.kind === "Стелла"){
       const area = (v.stellaWidth*(v.stellaHeight+v.stellaLeg))/1e6;
       const price = P.acrylic.thickness[v.stellaThickness]||0;
       const total = price*area*(1+v.markup/100)*(1-v.discount/100)*v.qty;
-      return {total, qty:v.qty, unitPrice: total/v.qty,
-        specs:`Изготовление стеллы из акрила ${v.stellaThickness}, ${v.stellaWidth}х${v.stellaHeight} мм`};
+      const specs = `Изготовление стеллы из акрила ${v.stellaThickness}, ${v.stellaWidth}х${v.stellaHeight} мм`;
+      const specsGoods = `Стелла из акрила ${v.stellaThickness}, ${v.stellaWidth}х${v.stellaHeight} мм`;
+      return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
     }
     // Лист — без ножки
     const area = (v.width*v.height)/1e6;
     const price = P.acrylic.thickness[v.thickness]||0;
     const total = price*area*(1+v.markup/100)*(1-v.discount/100)*v.qty;
-    return {total, qty:v.qty, unitPrice: total/v.qty,
-      specs:`Изготовление изделия из акрила ${v.thickness}, ${v.width}х${v.height} мм`};
+    const specs = `Изготовление изделия из акрила ${v.thickness}, ${v.width}х${v.height} мм`;
+    const specsGoods = `Изделие из акрила ${v.thickness}, ${v.width}х${v.height} мм`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
   }
 },
 
@@ -1004,8 +1017,12 @@ const PRODUCTS = [
     }
     const total = sumPerItem*v.qty*(1+v.markup/100)*(1-v.discount/100);
     const sizePart = labels.join(" + ");
-    return {total, qty:v.qty, unitPrice: total/v.qty,
-      specs:`ДТФ нанесение ${sizePart}, ${itemPhrase}`};
+    const specs = `ДТФ нанесение ${sizePart}, ${itemPhrase}`;
+    // В счёте на товар — для нашего материала показываем изделие, для чужого — то же самое
+    const specsGoods = v.material==="Наш"
+      ? `${v.ourItem} с ДТФ нанесением ${sizePart}`
+      : `ДТФ нанесение ${sizePart}, на вашем изделии`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
   }
 },
 
@@ -1304,13 +1321,25 @@ function updateResultPanel(){
   inner.appendChild(el("div",{class:"unit"},[`${fmtMoney(result.unitPrice)} / шт · тираж ${fmtNum(result.qty)} шт`]));
   inner.appendChild(el("div",{class:"result-specs"},[result.specs||""]));
   panel.appendChild(inner);
+
+  const goodsText    = result.specsGoods || result.specs || "";
+  const serviceText  = result.specs || "";
+
   const actions = el("div",{class:"result-actions"});
-  const copyBtn = el("button",{class:"btn btn-ghost btn-block", type:"button", onClick: ()=>{
-    copyTextToClipboard(clipLine(result.specs, result.qty, result.unitPrice, result.total), "Строка скопирована");
-  }},["📋 Скопировать"]);
-  const addBtn = el("button",{class:"btn btn-primary btn-block", type:"button", onClick: ()=>addToInvoice(product, values, result)},
-    ["➕ Добавить в счёт"]);
-  actions.append(copyBtn, addBtn);
+
+  const copyPosBtn = el("button",{class:"btn btn-ghost btn-block", type:"button"},["📋 Позицию"]);
+  copyPosBtn.addEventListener("click", ()=> copyTextToClipboard(goodsText, "Позиция скопирована"));
+
+  const copySvcBtn = el("button",{class:"btn btn-ghost btn-block", type:"button"},["📋 Услугу"]);
+  copySvcBtn.addEventListener("click", ()=> copyTextToClipboard(serviceText, "Услуга скопирована"));
+
+  const copyRow = el("div",{class:"result-copy-row"});
+  copyRow.append(copyPosBtn, copySvcBtn);
+
+  const addBtn = el("button",{class:"btn btn-primary btn-block", type:"button"},["➕ Добавить в счёт"]);
+  addBtn.addEventListener("click", ()=> addToInvoice(product, values, result));
+
+  actions.append(copyRow, addBtn);
   panel.appendChild(actions);
 
   // та же сумма и то же действие — в закреплённой нижней панели для телефона
@@ -1326,6 +1355,7 @@ function addToInvoice(product, values, result){
   INVOICE.push({
     id: uid(),
     name: result.specs || product.title,
+    goodsName: result.specsGoods || result.specs || product.title,
     qty: result.qty,
     unitPrice: result.unitPrice,
     total: result.total,
@@ -1421,45 +1451,51 @@ function renderInvoice(){
 }
 
 // Строим текст для одной группы (услуги или товары)
-function buildGroupText(items, withPrices){
+// type="service" → используем item.name (Изготовление/Печать...)
+// type="goods"   → используем item.goodsName (Изделие из ПВХ / Футболка с ДТФ...)
+// Оба счёта включают ВСЕ позиции счёта
+function buildGroupText(type, withPrices){
+  const items = INVOICE;
+  if (!items.length) return "";
   const lines = [];
   if (COMPANY.name) lines.push(COMPANY.name);
   if (COMPANY.phone) lines.push(COMPANY.phone);
   if (COMPANY.note) lines.push(COMPANY.note);
   if (lines.length) lines.push("");
   if (withPrices){
-    items.forEach(item=> lines.push(clipLine(item.name, item.qty, item.unitPrice, item.total)));
+    items.forEach(item=>{
+      const nm = type==="goods" ? (item.goodsName||item.name) : item.name;
+      lines.push(clipLine(nm, item.qty, item.unitPrice, item.total));
+    });
     lines.push("");
-    const groupSum = Math.ceil(items.reduce((s,i)=>s+i.total,0)*(1-invoiceClientDiscount/100));
     if (invoiceClientDiscount>0) lines.push(`Скидка: ${invoiceClientDiscount}%`);
-    lines.push(`Итого: ${fmtSmart(groupSum)} рублей`);
+    lines.push(`Итого: ${fmtSmart(invoiceSum())} рублей`);
     lines.push("");
     lines.push(`Оплата: ${COMPANY.payment || "Наличными / Счёт на Юр. лицо"}`);
   } else {
-    items.forEach(item=> lines.push(`${item.name} - ${fmtSmart(item.qty)}шт`));
+    items.forEach(item=>{
+      const nm = type==="goods" ? (item.goodsName||item.name) : item.name;
+      lines.push(`${nm} - ${fmtSmart(item.qty)}шт`);
+    });
   }
   return lines.join("\n");
 }
 
 function copyServices(){
-  const services = INVOICE.filter(i=>i.invoiceType==="service");
-  if (!services.length){ toast("В счёте нет позиций-услуг"); return; }
-  copyTextToClipboard(buildGroupText(services, true), "Счёт на услуги скопирован");
+  if (!INVOICE.length){ toast("Счёт пуст"); return; }
+  copyTextToClipboard(buildGroupText("service", true), "Счёт на услуги скопирован");
 }
 function copyGoods(){
-  const goods = INVOICE.filter(i=>i.invoiceType!=="service");
-  if (!goods.length){ toast("В счёте нет позиций-товаров"); return; }
-  copyTextToClipboard(buildGroupText(goods, true), "Счёт на товары скопирован");
+  if (!INVOICE.length){ toast("Счёт пуст"); return; }
+  copyTextToClipboard(buildGroupText("goods", true), "Счёт на товар скопирован");
 }
 function copyServicesNP(){
-  const services = INVOICE.filter(i=>i.invoiceType==="service");
-  if (!services.length){ toast("В счёте нет позиций-услуг"); return; }
-  copyTextToClipboard(buildGroupText(services, false), "Список услуг скопирован");
+  if (!INVOICE.length){ toast("Счёт пуст"); return; }
+  copyTextToClipboard(buildGroupText("service", false), "Список услуг скопирован");
 }
 function copyGoodsNP(){
-  const goods = INVOICE.filter(i=>i.invoiceType!=="service");
-  if (!goods.length){ toast("В счёте нет позиций-товаров"); return; }
-  copyTextToClipboard(buildGroupText(goods, false), "Список товаров скопирован");
+  if (!INVOICE.length){ toast("Счёт пуст"); return; }
+  copyTextToClipboard(buildGroupText("goods", false), "Список товаров скопирован");
 }
 
 /* =========================================================================
@@ -1877,7 +1913,7 @@ document.getElementById("clAddBtn").addEventListener("click", ()=>{
   if (isNaN(price) || price<0){ toast("Укажи цену"); return; }
   const roundedPrice = Math.ceil(price);
   const clType = document.getElementById("clType").value;
-  INVOICE.push({id:uid(), name, qty, unitPrice:roundedPrice, total:roundedPrice*qty, invoiceType:clType});
+  INVOICE.push({id:uid(), name, goodsName:name, qty, unitPrice:roundedPrice, total:roundedPrice*qty, invoiceType:clType});
   persistInvoice(); renderInvoice(); updateInvoiceBadge();
   nameEl.value=""; qtyEl.value="1"; priceEl.value="";
   toast("Добавлено: "+name);

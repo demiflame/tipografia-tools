@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Типография — калькулятор и счета</title>
+<style>
+:root{
+  --ink:#1B1B19;
+  --ink-soft:#5B5750;
+  --paper:#FAF8F3;
+  --surface:#FFFFFF;
+  --line:#E3DCCB;
+  --line-soft:#EFEADB;
+  --cyan:#0E7C86;
+  --cyan-dark:#0A5F67;
+  --coral:#D6502F;
+  --coral-dark:#B53E22;
+  --ok:#2E7D4F;
+  --danger:#C23B3B;
+  --shadow:0 1px 2px rgba(27,27,25,.06),0 6px 18px rgba(27,27,25,.07);
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Segoe UI","Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  font-size:14.5px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+input,select,button,textarea{font-family:inherit;font-size:inherit;color:inherit;}
+input[type=number],input[type=text]{
+  font-variant-numeric:tabular-nums;
+}
+h1,h2,h3{margin:0;}
+button{cursor:pointer;}
+
+/* ---------- topbar (mobile-first: компактно, табы скроллятся в одну строку) ---------- */
+.topbar{
+  position:sticky;top:0;z-index:20;
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:1180px;margin:0 auto;
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;
+}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.2px;white-space:nowrap;flex:none;}
+.regmark{width:20px;height:20px;flex:none;}
+.brand-title{font-size:15px;}
+.brand-sub{display:none;font-size:11.5px;color:var(--ink-soft);font-weight:400;}
+.tabs{
+  display:flex;gap:4px;margin-left:auto;flex-wrap:nowrap;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none;}
+.tab-btn{
+  flex:none;border:1px solid transparent;background:transparent;
+  padding:11px 13px;border-radius:8px;font-weight:600;color:var(--ink-soft);white-space:nowrap;
+}
+.tab-btn:hover{background:var(--line-soft);}
+.tab-btn.active{background:var(--ink);color:#fff;}
+
+main{max-width:1180px;margin:0 auto;padding:14px 14px 40px;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+#tab-calc.active{padding-bottom:74px;} /* место под закреплённую панель итога на телефоне */
+
+/* ---------- calculator layout (mobile-first: один столбец, категории — горизонтальная лента) ---------- */
+.calc-layout{display:flex;flex-direction:column;gap:14px;}
+.product-nav{
+  display:grid;grid-template-columns:repeat(auto-fill, minmax(92px, 1fr));gap:6px;
+  margin:0;padding:0;
+}
+.nav-group{display:contents;}
+.nav-group-title{display:none;}
+.nav-item{
+  display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;
+  padding:6px 7px;border-radius:8px;border:1px solid var(--line);
+  font-weight:600;color:var(--ink);text-align:center;background:var(--surface);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;
+}
+.nav-item:hover{background:var(--line-soft);}
+.nav-item.active{background:var(--ink);border-color:var(--ink);box-shadow:none;color:#fff;}
+.nav-item .ico{font-size:13px;flex:none;}
+
+.calc-main{display:flex;flex-direction:column;gap:14px;min-width:0;}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);
+}
+.product-form{padding:16px;min-width:0;}
+.product-form h2{font-size:17px;margin-bottom:2px;}
+.product-form .hint{color:var(--ink-soft);font-size:12.5px;margin-bottom:14px;}
+.field-grid{display:grid;grid-template-columns:1fr;gap:12px;}
+.list-field{display:flex;flex-direction:column;gap:10px;}
+.list-item-card{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--paper);}
+.list-item-head{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px;}
+.list-item-card .field-grid{grid-template-columns:1fr;gap:10px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field.full{grid-column:1 / -1;}
+.field label{font-size:12.5px;font-weight:600;color:var(--ink-soft);}
+.field input,.field select{
+  border:1px solid var(--line);border-radius:7px;padding:11px 12px;background:#fff;
+  font-size:16px; /* >=16px — чтобы iOS не зумил страницу при фокусе на поле */
+}
+.field input:focus,.field select:focus{outline:2px solid var(--cyan);outline-offset:-1px;border-color:var(--cyan);}
+.field .resolved{font-size:12.5px;color:var(--ink-soft);padding-top:2px;}
+.field-error{color:var(--danger);font-size:12.5px;margin-top:10px;font-weight:600;}
+
+.result-panel{padding:16px;}
+.result-panel .label{font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+.result-panel .unit{font-size:13px;color:var(--ink-soft);margin-top:2px;}
+.result-total{font-size:28px;font-weight:800;color:var(--coral);margin:8px 0 2px;font-variant-numeric:tabular-nums;}
+.result-specs{font-size:12.5px;color:var(--ink-soft);margin:10px 0 14px;line-height:1.5;}
+.result-actions{display:flex;flex-direction:column;gap:8px;}
+.result-copy-row{display:flex;gap:6px;}
+.result-copy-row .btn{flex:1;}
+.corners{position:relative;padding:14px;}
+.corner{position:absolute;width:11px;height:11px;border:0;}
+.corner.tl{top:4px;left:4px;border-top:2px solid var(--coral);border-left:2px solid var(--coral);}
+.corner.tr{top:4px;right:4px;border-top:2px solid var(--coral);border-right:2px solid var(--coral);}
+.corner.bl{bottom:4px;left:4px;border-bottom:2px solid var(--coral);border-left:2px solid var(--coral);}
+.corner.br{bottom:4px;right:4px;border-bottom:2px solid var(--coral);border-right:2px solid var(--coral);}
+
+/* закреплённая внизу панель «Итого» — на телефоне всегда под рукой, на десктопе скрыта (см. медиа-запрос) */
+.mobile-total-bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;
+  background:var(--surface);border-top:1px solid var(--line);
+  box-shadow:0 -6px 18px rgba(27,27,25,.08);
+  padding:10px 14px;padding-bottom:max(10px, env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:12px;
+}
+.mobile-total-bar .mtb-info{flex:1;min-width:0;overflow:hidden;}
+.mobile-total-bar .mtb-label{font-size:10.5px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+.mobile-total-bar .mtb-sum{font-size:19px;font-weight:800;color:var(--coral);font-variant-numeric:tabular-nums;line-height:1.25;white-space:nowrap;}
+.mobile-total-bar .btn{flex:none;}
+
+.btn{
+  display:inline-flex;align-items:center;gap:7px;justify-content:center;
+  border-radius:8px;border:1px solid transparent;padding:12px 15px;font-weight:700;
+  font-size:13.5px;white-space:nowrap;
+}
+.btn-primary{background:var(--cyan);color:#fff;}
+.btn-primary:hover{background:var(--cyan-dark);}
+.btn-primary:disabled{background:#BFC4C3;cursor:not-allowed;}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
+.btn-ghost:hover{background:var(--line-soft);}
+.btn-danger{background:transparent;border:1px solid var(--line);color:var(--danger);}
+.btn-danger:hover{background:#FBEAEA;}
+.btn-block{width:100%;}
+
+/* ---------- invoice (mobile-first: карточки вместо широкой таблицы) ---------- */
+.invoice-toolbar{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.invoice-toolbar .btn{width:100%;}
+.invoice-toolbar .spacer{display:none;}
+.invoice-empty{padding:40px 20px;text-align:center;color:var(--ink-soft);}
+.custom-line-card{padding:14px 14px 16px;margin-bottom:14px;}
+.custom-line-row{display:flex;flex-direction:column;gap:8px;}
+.custom-line-row input{border:1px solid var(--line);border-radius:7px;padding:11px 12px;background:#fff;font-size:16px;}
+.custom-line-row .btn{width:100%;}
+.invoice-table-wrap{overflow:visible;border:none;background:transparent;}
+table.invoice{width:100%;border-collapse:collapse;min-width:0;display:block;}
+table.invoice thead{display:none;}
+table.invoice tbody{display:block;}
+table.invoice tr{
+  display:block;position:relative;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:10px 12px;margin-bottom:10px;
+}
+table.invoice td{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+  padding:6px 0;border-bottom:1px dashed var(--line-soft);text-align:right;
+}
+table.invoice tr td:last-child{border-bottom:none;}
+table.invoice td:before{
+  content:attr(data-label);flex:none;text-align:left;
+  font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;
+}
+table.invoice td.idx{display:none;}
+table.invoice td.action-cell{position:absolute;top:8px;right:8px;border:none;padding:0;}
+table.invoice td.action-cell:before{content:"";}
+table.invoice .specs{color:var(--ink-soft);font-size:12.5px;}
+table.invoice input.qty-edit,table.invoice input.price-edit{width:70px;border:1px solid var(--line);border-radius:6px;padding:6px;text-align:right;}
+.row-del{background:none;border:none;color:var(--ink-soft);font-size:18px;line-height:1;padding:4px;}
+.row-del:hover{color:var(--danger);}
+.type-toggle{border-radius:5px;border:1px solid var(--line);padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px;}
+.type-good{background:#EEF7EE;color:#2E7D4F;border-color:#A8D5B5;}
+.type-service{background:#EEF0FF;color:#3B4FC4;border-color:#A8B4E8;}
+.discount-row{display:flex;align-items:center;gap:10px;padding:12px 4px 4px;font-size:13px;font-weight:600;color:var(--ink-soft);}
+.discount-row input{width:70px;border:1px solid var(--line);border-radius:6px;padding:6px;text-align:right;}
+.discount-saved{color:var(--ok);font-size:12.5px;font-weight:600;}
+.invoice-group-btns{display:flex;gap:8px;flex-wrap:wrap;padding:8px 0 4px;}
+@media(max-width:759px){.invoice-group-btns{flex-direction:column;} .invoice-group-btns .btn{width:100%;}}
+.invoice-total-bar{
+  display:flex;justify-content:space-between;gap:14px;align-items:baseline;
+  padding:10px 4px 4px;font-weight:700;
+}
+.invoice-total-bar .sum{font-size:24px;color:var(--coral);font-variant-numeric:tabular-nums;}
+
+/* ---------- settings ---------- */
+.settings-toolbar{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.settings-toolbar .btn{width:100%;}
+.settings-toolbar .spacer{display:none;}
+details.settings-section{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  margin-bottom:10px;overflow:hidden;
+}
+details.settings-section summary{
+  cursor:pointer;padding:13px 16px;font-weight:700;list-style:none;display:flex;align-items:center;gap:10px;
+}
+details.settings-section summary::-webkit-details-marker{display:none;}
+details.settings-section summary:before{content:"▸";color:var(--ink-soft);transition:transform .15s;}
+details.settings-section[open] summary:before{transform:rotate(90deg);}
+.settings-body{padding:4px 14px 16px;border-top:1px solid var(--line-soft);}
+.settings-subtitle{font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 6px;}
+.plain-fields{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0;}
+.plain-fields .field{flex:1 1 160px;}
+
+.kv-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
+.kv-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.kv-row input[type=text]{flex:1 1 90px;min-width:0;}
+.kv-row input[type=number]{flex:1 1 80px;min-width:0;}
+.kv-row .sub-label{font-size:11px;color:var(--ink-soft);min-width:54px;}
+.kv-row input,.grid-table input{border:1px solid var(--line);border-radius:6px;padding:8px;background:#fff;}
+.icon-btn{
+  flex:none;width:32px;height:32px;border-radius:6px;border:1px solid var(--line);
+  background:#fff;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;
+}
+.icon-btn:hover{border-color:var(--danger);color:var(--danger);}
+.btn-add{
+  border:1px dashed var(--line);background:transparent;border-radius:7px;
+  padding:9px 12px;font-weight:600;color:var(--cyan-dark);font-size:12.5px;
+}
+.btn-add:hover{background:var(--line-soft);}
+
+.grid-table-wrap{overflow:auto;margin:0 -14px;padding:0 14px;}
+table.grid-table{border-collapse:collapse;margin-bottom:8px;}
+table.grid-table th,table.grid-table td{border:1px solid var(--line-soft);padding:4px;}
+table.grid-table th{background:var(--line-soft);font-size:11.5px;font-weight:700;color:var(--ink-soft);}
+table.grid-table input[type=number]{width:72px;}
+table.grid-table input.row-key{width:100px;font-weight:600;}
+table.grid-table input.col-key{width:72px;font-weight:600;text-align:center;}
+
+.tier-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.tier-row span{font-size:12.5px;color:var(--ink-soft);}
+
+.toast{
+  position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;padding:11px 18px;border-radius:8px;font-weight:600;font-size:13.5px;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:var(--shadow);z-index:50;
+  max-width:90vw;text-align:center;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.meta-note{font-size:12.5px;color:var(--ink-soft);margin:10px 0;line-height:1.55;}
+.danger-zone{border-top:1px dashed var(--line);margin-top:16px;padding-top:14px;}
+
+/* =====================================================================
+   ПЛАНШЕТ / ДЕСКТОП — достраиваем мобильную базу для широких экранов
+   ===================================================================== */
+@media (min-width: 760px){
+  .mobile-total-bar{display:none;}
+  #tab-calc.active{padding-bottom:0;}
+  .toast{bottom:26px;}
+
+  .topbar-inner{padding:12px 18px;gap:18px;}
+  .brand-sub{display:block;}
+  .tabs{flex-wrap:wrap;overflow:visible;}
+  .tab-btn{padding:9px 14px;}
+
+  main{padding:20px 18px 70px;}
+
+  .calc-layout{flex-direction:row;gap:20px;align-items:flex-start;}
+  .product-nav{
+    flex:0 0 230px;display:block;
+    position:sticky;top:78px;margin:0;padding:0;
+    max-height:calc(100vh - 96px);overflow:auto;
+  }
+  .nav-group{display:block;}
+  .nav-group-title{display:block;}
+  .nav-item{
+    width:100%;background:none;border-color:transparent;
+    padding:8px 10px;font-size:14.5px;justify-content:flex-start;text-align:left;
+    white-space:normal;overflow:visible;text-overflow:initial;
+  }
+  .nav-item .ico{font-size:inherit;width:18px;}
+  .nav-item.active{background:var(--surface);border-color:var(--line);box-shadow:var(--shadow);color:var(--cyan-dark);}
+
+  .calc-main{flex-direction:row;gap:18px;align-items:flex-start;}
+  .product-form{flex:1;padding:18px 20px;}
+  .field-grid{grid-template-columns:1fr 1fr;gap:12px 16px;}
+  .list-item-card .field-grid{grid-template-columns:1fr 1fr;}
+  .field input,.field select{padding:8px 10px;font-size:14.5px;}
+
+  .result-panel{flex:0 0 270px;position:sticky;top:78px;}
+
+  .invoice-toolbar{flex-direction:row;flex-wrap:wrap;align-items:center;}
+  .invoice-toolbar .btn{width:auto;}
+  .invoice-toolbar .spacer{display:block;flex:1;}
+  .custom-line-row{flex-direction:row;align-items:center;}
+  .custom-line-row input[type=text]{flex:2 1 200px;}
+  .custom-line-row input[type=number]{flex:1 1 110px;}
+  .custom-line-row .btn{width:auto;flex:none;}
+  .settings-toolbar{flex-direction:row;flex-wrap:wrap;}
+  .settings-toolbar .btn{width:auto;}
+  .settings-toolbar .spacer{display:block;flex:1;}
+
+  .invoice-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);}
+  table.invoice{min-width:760px;display:table;}
+  table.invoice thead{display:table-header-group;}
+  table.invoice tbody{display:table-row-group;}
+  table.invoice th{
+    text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--ink-soft);border-bottom:1px solid var(--line);padding:10px 12px;background:var(--line-soft);
+    position:sticky;top:0;
+  }
+  table.invoice tr{display:table-row;background:none;border:none;box-shadow:none;padding:0;margin:0;}
+  table.invoice td{
+    display:table-cell;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-soft);
+    vertical-align:top;
+  }
+  table.invoice td:before{content:none;}
+  table.invoice tr:last-child td{border-bottom:none;}
+  table.invoice td.idx{display:table-cell;color:var(--ink-soft);}
+  table.invoice td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  table.invoice td.action-cell{position:static;padding:10px 12px;border-bottom:1px solid var(--line-soft);}
+  .invoice-total-bar{justify-content:flex-end;padding:16px 4px 4px;}
+  .invoice-total-bar .sum{font-size:26px;}
+
+  .plain-fields .field{flex:0 0 190px;}
+  .kv-row input[type=text]{flex:1 1 150px;}
+  .kv-row input[type=number]{flex:0 0 110px;}
+}
+@media print{
+  .topbar,.invoice-toolbar,#tab-calc,#tab-settings,.mobile-total-bar{display:none !important;}
+  body{background:#fff;}
+  table.invoice{display:table;}
+  table.invoice thead{display:table-header-group;}
+  table.invoice tbody{display:table-row-group;}
+  table.invoice tr{display:table-row;background:none;border:none;box-shadow:none;}
+  table.invoice td{display:table-cell;}
+  table.invoice td:before{content:none;}
+  table.invoice input{border:none;}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg class="regmark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#D6502F" stroke-width="1.6"/><line x1="12" y1="1" x2="12" y2="23" stroke="#D6502F" stroke-width="1.2"/><line x1="1" y1="12" x2="23" y2="12" stroke="#D6502F" stroke-width="1.2"/></svg>
+      <div>
+        <div class="brand-title">Типография</div>
+        <div class="brand-sub">калькулятор стоимости и счета</div>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="calc">🖨 Калькулятор</button>
+      <button class="tab-btn" data-tab="invoice">🧾 Счёт <span id="invoiceCountBadge"></span></button>
+      <button class="tab-btn" data-tab="settings">⚙️ Настройки цен</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <section id="tab-calc" class="tab-panel active">
+    <div class="calc-layout">
+      <nav class="product-nav" id="productNav"></nav>
+      <div class="calc-main">
+        <div class="card product-form" id="productForm"></div>
+        <aside class="card result-panel" id="resultPanel"></aside>
+      </div>
+    </div>
+    <div class="mobile-total-bar" id="mobileTotalBar">
+      <div class="mtb-info">
+        <div class="mtb-label">Итого</div>
+        <div class="mtb-sum" id="mtbSum">—</div>
+      </div>
+      <button class="btn btn-primary" id="mtbAddBtn" type="button">➕ В счёт</button>
+    </div>
+  </section>
+
+  <section id="tab-invoice" class="tab-panel">
+    <div class="invoice-toolbar">
+      <button class="btn btn-primary" id="btnCopyServices">📋 Счёт на услуги</button>
+      <button class="btn btn-primary" id="btnCopyGoods">📋 Счёт на товар</button>
+      <button class="btn btn-ghost" id="btnCopyServicesNP">Услуги без цен</button>
+      <button class="btn btn-ghost" id="btnCopyGoodsNP">Товары без цен</button>
+      <button class="btn btn-ghost" id="btnPrintInvoice">🖨️ Печать</button>
+      <div class="spacer"></div>
+      <button class="btn btn-danger" id="btnClearInvoice">🗑 Очистить счёт</button>
+    </div>
+    <div class="card custom-line-card">
+      <div class="settings-subtitle">+ Своя позиция</div>
+      <div class="custom-line-row">
+        <input type="text" id="clName" placeholder="Название (напр. Дизайн макета)">
+        <input type="number" id="clQty" placeholder="Кол-во" value="1" min="0">
+        <input type="number" id="clPrice" placeholder="Цена/шт, ₽" min="0">
+        <select id="clType" style="border:1px solid var(--line);border-radius:7px;padding:11px 10px;background:#fff;font-size:16px;">
+          <option value="service">Услуга</option>
+          <option value="good">Товар</option>
+        </select>
+        <button class="btn btn-primary" id="clAddBtn" type="button">+ Добавить</button>
+      </div>
+    </div>
+    <div id="invoiceWrap"></div>
+  </section>
+
+  <section id="tab-settings" class="tab-panel">
+    <div class="settings-toolbar">
+      <button class="btn btn-ghost" id="btnExportPrices">📤 Экспорт настроек (JSON)</button>
+      <button class="btn btn-ghost" id="btnImportPrices">📥 Импорт настроек</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+      <div class="spacer"></div>
+      <button class="btn btn-danger" id="btnResetPrices">↺ Сбросить к заводским ценам</button>
+    </div>
+    <div id="settingsRoot"></div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   1. ЦЕНЫ ПО УМОЛЧАНИЮ — все тарифы из листа «Справочник цен».
+   Это просто данные. Если хочешь поменять прайс «навсегда» (не через
+   интерфейс настроек, а в коде) — меняй здесь.
+   ========================================================================= */
+const DEFAULT_PRICES = {
+
+  // Печать SRA3 -----------------------------------------------------------
+  sheetSRA3: { width: 320, height: 450 }, // физический размер листа SRA3, мм
+  sra3Grid: { // плотность -> цветность -> цена за лист, ₽
+    "300": { "4x0": 40.8, "4x4": 76.8, "4x1": 52.8, "1x0": 16.8, "1x1": 28.8 },
+    "250": { "4x0": 40.3, "4x4": 76.3, "4x1": 52.3, "1x0": 16.3, "1x1": 28.3 },
+    "200": { "4x0": 36.8, "4x4": 69.8, "4x1": 48.8, "1x0": 14.8, "1x1": 25.8 }, // среднее 250 и 170
+    "170": { "4x0": 33.3, "4x4": 63.3, "4x1": 45.3, "1x0": 13.3, "1x1": 23.3 },
+    "150": { "4x0": 32.5, "4x4": 62.5, "4x1": 44.5, "1x0": 12.5, "1x1": 22.5 },
+    "130": { "4x0": 26.2, "4x4": 50.2, "4x1": 38.2, "1x0": 10.2, "1x1": 18.2 },
+    "115": { "4x0": 25.9, "4x4": 49.9, "4x1": 37.9, "1x0": 9.9,  "1x1": 17.9 },
+    "Офсет 90 гр": { "4x0": 25.524, "4x4": 49.524, "4x1": 37.524, "1x0": 9.52, "1x1": 17.52 }
+  },
+  sra3Extras: {
+    bigPrice: 1,         // Биг, ₽/шт
+    contourCut: { "<50шт": 50, "50+шт": 10, "100+шт": 1 }, // резка по контуру
+    spring: 0.07,        // брошюровка пружиной — ₽ за мм длины края
+    staple: 15           // брошюровка скобами — фикс. доплата ₽/шт
+  },
+  tirazhDiscount: [[1,1],[100,0.8],[300,0.7],[500,0.5],[1000,0.4],[10000,0.3]], // [тираж от, коэффициент]
+  formats: { // стандартные форматы изделия, мм (используются в Печати SRA3)
+    "A3": {w:297,h:420}, "A4": {w:210,h:297}, "A5": {w:148,h:210},
+    "A6": {w:105,h:148}, "Визитка": {w:90,h:50}, "SRA3": {w:320,h:450}
+  },
+  lamination: {
+    types: { "Нет":0, "<100мкм / 1":25, "<100мкм / 2":45, "125мкм / 1":35, "125мкм / 2":45, "250 мкм / 1":60, "250 мкм / 2":60 },
+    finish: { "Матовая":10, "Глянцевая":5 },
+    // Человекочитаемые названия для буфера (без "/1" "/2")
+    labels: { "<100мкм / 1":"Тонкая", "<100мкм / 2":"Тонкая", "125мкм / 1":"Средняя", "125мкм / 2":"Средняя", "250 мкм / 1":"Плотная", "250 мкм / 2":"Плотная" }
+  },
+
+  // Визитки / Дипломы ------------------------------------------------------
+  businessCards: { pricePerItem: 9.5 },
+  diplomas: { pricePerItem: 45 },
+
+  // ПВХ ---------------------------------------------------------------------
+  pvc: {
+    thickness: { "3 мм":2750, "5 мм":3750, "6 мм":0, "10 мм":0 },
+    cutType: { "Без резки":1, "Прямая резка":1.3, "Резка по форме":1.5 },
+    pockets: { "Нет":0, "А4":300, "А5":175, "А6":100 }
+  },
+
+  // Акрил ---------------------------------------------------------------------
+  acrylic: {
+    thickness: { "2 мм":12500, "3 мм":17500, "4 мм":22500, "5 мм":27500, "6 мм":32500, "8 мм":45000, "10 мм":52500 }
+  },
+
+  // Композит ------------------------------------------------------------------
+  composite: { pricePerM2: 5750 },
+
+  // Медали (подкатегория Акрила) — фикс. цена за шт: толщина пластика × размер
+  medals: {
+    "2 мм": { "6 см":72, "7 см":87, "8 см":105 },
+    "3 мм": { "6 см":88, "7 см":111, "8 см":137 },
+    "4 мм": { "5 см":82, "6 см":106, "7 см":135, "8 см":170 },
+    "5 мм": { "5 см":82, "6 см":124, "7 см":160, "8 см":202 }
+  },
+
+  // Гравировка ---------------------------------------------------------------
+  engraving: { pricePerM2: 8500, minPrice: 150 },
+
+  // Самоклейка -----------------------------------------------------------
+  selfAdhesive: {
+    pricePerM2: 475,
+    cutType: { "Без резки":1, "Резка плоттером":1.5, "На монтажке":3 },
+    presets: { "Стикерпак A6": {w:105,h:148,price:30}, "Стикерпак A5": {w:148,h:210,price:60} },
+    smallFormatThreshold: 100, // мм — ниже этого размера по обеим сторонам считаем как «мелкий формат»
+    smallRoll: {
+      rollWidth: 1300,  // ширина рулона самоклейки, мм
+      edgeMargin: 100,  // вылет полотна с каждой стороны, мм
+      gap: 7            // зазор между наклейками по умолчанию, мм (обычно 5-10)
+    }
+  },
+
+  // ДТФ -----------------------------------------------------------------------
+  dtf: {
+    freePerM2: 4750,
+    fixed: { "A4":300, "A5":150, "До 10х10 см (малый)":100, "До 10х10 см (большой)":75 },
+    materialPrice: 750,
+    minPrice: 150, // минимальная цена ОДНОГО нанесения, если по площади выходит меньше
+    ourItems: { // изделия при выборе «наш материал»
+      "Футболка":485, "Худи":1000, "Рубашка поло":490,
+      "Сумка поясная":165, "Шоппер":250, "Мешок для обуви":150
+    }
+  },
+
+  // Сублимация ------------------------------------------------------------
+  sublimation: { base: { "А4":150, "А5":100, "Шоппер":375, "Футболка":485 } },
+
+  // Баннер ------------------------------------------------------------------
+  banner: {
+    density: { "440 г/м²":475, "510 г/м²":650, "Blackout":950 },
+    eyeletBasePrice: 25,   // база для расчёта отделки люверсами, ₽
+    eyeletDivisor: 0.4,    // делитель в формуле отделки (м)
+    eyeletFactorFull: 2.4, // коэффициент «люверс + проклейка»
+    eyeletFactorGlueOnly: 1.4, // коэффициент «проклейка»
+    rollUp: { "Ролл Ап конструкция":6750, "Замена полотна":1350 }
+  },
+
+  // Холсты --------------------------------------------------------------------
+  canvas: { "С подрамником":3750, "Без подрамника":1900 },
+
+  // Флаги и виндеры -------------------------------------------------------
+  flagsExtra: { construction: 1750, finishingPerM2: 975 },
+
+  // Браслеты -------------------------------------------------------------------
+  bracelets: { "1 цвет":68, "2 цвета":74, "3 цвета":81 },
+
+  // Значки закатные ------------------------------------------------------
+  badges: { "38 мм": {ge10:40, lt10:100}, "56 мм": {ge10:65, lt10:150} },
+  badgesSmallQtyThreshold: 10,
+
+  // Блокноты ------------------------------------------------------------------
+  notebooks: {
+    components: {
+      "Обложка": { "А5":17.34, "А6":9 },
+      "Задник":  { "А5":10,    "А6":7 },
+      "Пружина": { "А5":13.5,  "А6":9 },
+      "Лист":    { "А5":1.47,  "А6":1.7 }
+    },
+    sheetsCount: 30
+  },
+
+  // Постер А2+ ------------------------------------------------------------------
+  poster: { pricePerM2: 475 },
+
+  // ПВД пакеты ---------------------------------------------------------------
+  pvdBags: {
+    types: { "30×40 1цв/1ст":60, "40-50 1цв/1ст":62, "Бумажный":63 },
+    minQty: 100
+  }
+};
+
+const DEFAULT_COMPANY = { name: "", phone: "", note: "", payment: "Наличными / Счёт на Юр. лицо" };
+
+/* =========================================================================
+   2. УТИЛИТЫ
+   ========================================================================= */
+const LS_PRICES = "tipo_prices_v1";
+const LS_INVOICE = "tipo_invoice_v1";
+const LS_COMPANY = "tipo_company_v1";
+
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+function deepMerge(base, override){
+  if (override === undefined || override === null) return clone(base);
+  if (Array.isArray(base)) return Array.isArray(override) ? override : clone(base);
+  if (typeof base === "object" && typeof override === "object"){
+    const out = {};
+    const keys = new Set([...Object.keys(base), ...Object.keys(override)]);
+    keys.forEach(k => { out[k] = deepMerge(base[k], override[k]); });
+    return out;
+  }
+  return override !== undefined ? override : base;
+}
+
+function loadJSON(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    if (!raw) return clone(fallback);
+    return JSON.parse(raw);
+  }catch(e){ return clone(fallback); }
+}
+function saveJSON(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ /* хранилище недоступно — молча игнорируем */ }
+}
+
+let PRICES = deepMerge(DEFAULT_PRICES, loadJSON(LS_PRICES, DEFAULT_PRICES));
+let COMPANY = deepMerge(DEFAULT_COMPANY, loadJSON(LS_COMPANY, DEFAULT_COMPANY));
+let INVOICE = loadJSON(LS_INVOICE, []);
+
+function persistPrices(){ saveJSON(LS_PRICES, PRICES); }
+function persistInvoice(){ saveJSON(LS_INVOICE, INVOICE); }
+function persistCompany(){ saveJSON(LS_COMPANY, COMPANY); }
+
+function fmtMoney(n){
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return Math.ceil(n).toLocaleString("ru-RU", {minimumFractionDigits:0, maximumFractionDigits:0}) + " ₽";
+}
+function fmtNum(n, d){
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return n.toLocaleString("ru-RU", {minimumFractionDigits:d||0, maximumFractionDigits:d||2});
+}
+// «Умное» округление для копирования в буфер: 2 знака после запятой максимум,
+// но без лишних нулей (200 -> "200", 36.5 -> "36,5", 6.73 -> "6,73").
+function fmtSmart(n){
+  if (n === null || n === undefined || isNaN(n)) return "0";
+  let s = n.toFixed(2);
+  s = s.replace(/0+$/,"").replace(/\.$/,"");
+  return s.replace(".", ",");
+}
+// Универсальная строка позиции для копирования: «Название - 12шт х 100 руб/шт = 1200 руб»
+function clipLine(name, qty, unitPrice, total){
+  return `${name} - ${fmtSmart(qty)}шт х ${fmtSmart(unitPrice)} руб/шт = ${fmtSmart(total)} руб`;
+}
+async function copyTextToClipboard(text, successMsg){
+  try{
+    await navigator.clipboard.writeText(text);
+    toast(successMsg);
+  }catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); toast(successMsg); }
+    catch(err){ toast("Не удалось скопировать автоматически — выдели текст вручную"); }
+    document.body.removeChild(ta);
+  }
+}
+function lookupTier(table, qty){
+  const sorted = table.slice().sort((a,b)=>a[0]-b[0]);
+  let coef = sorted.length ? sorted[0][1] : 1;
+  for (const [th, c] of sorted){ if (qty >= th) coef = c; else break; }
+  return coef;
+}
+function uid(){ return "_" + Math.random().toString(36).slice(2,9); }
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=> t.classList.remove("show"), 2200);
+}
+function el(tag, props={}, children=[]){
+  const e = document.createElement(tag);
+  Object.entries(props).forEach(([k,v])=>{
+    if (k === "class") e.className = v;
+    else if (k === "html") e.innerHTML = v;
+    else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (v !== undefined && v !== null) e.setAttribute(k, v);
+  });
+  (Array.isArray(children) ? children : [children]).forEach(c=>{
+    if (c === null || c === undefined) return;
+    e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  });
+  return e;
+}
+
+/* =========================================================================
+   3. КАТАЛОГ УСЛУГ
+   Каждая услуга — это: id, группа, название, иконка, список полей формы
+   и функция calc(values, P), которая возвращает результат расчёта.
+   Чтобы добавить новую услугу — допиши новый объект в массив PRODUCTS.
+   ========================================================================= */
+function optKeys(obj){ return Object.keys(obj || {}); }
+
+const PRODUCTS = [
+
+// ---- ПЕЧАТЬ SRA3 -----------------------------------------------------------
+{
+  id:"sra3", group:"Печать", title:"Печать SRA3", icon:"🖨",
+  invoiceType:"service",
+  fields:[
+    {key:"itemType", type:"select", label:"Тип изделия", default:"Лист",
+      options:()=>["Лист"]}, // Конверт — добавим позже
+    {key:"format", type:"select", label:"Формат изделия", default:"Свободный",
+      options:(P)=> ["Свободный", ...optKeys(P.formats)]},
+    {key:"itemWidth", type:"number", label:"Ширина изделия, мм", default:100, min:1,
+      showIf:v=>v.format==="Свободный"},
+    {key:"itemHeight", type:"number", label:"Высота изделия, мм", default:105, min:1,
+      showIf:v=>v.format==="Свободный"},
+    {key:"density", type:"select", label:"Плотность, г/м²", default:"300",
+      options:(P)=> optKeys(P.sra3Grid)},
+    {key:"colorMode", type:"select", label:"Цветность", default:"4x0",
+      options:()=> ["4x0","4x4","4x1","1x0","1x1"]},
+    {key:"lamination", type:"select", label:"Ламинация", default:"Нет",
+      options:(P)=> optKeys(P.lamination.types)},
+    {key:"finish", type:"select", label:"Мат / Глянц", default:"Глянцевая",
+      options:(P)=> optKeys(P.lamination.finish), showIf:v=>v.lamination!=="Нет"},
+    {key:"big", type:"select", label:"Биг", default:"Нет", options:()=>["Нет","Да"]},
+    {key:"contourCut", type:"select", label:"Резка по контуру", default:"Нет",
+      options:(P)=>["Нет",...optKeys(P.sra3Extras.contourCut)]},
+    {key:"binding", type:"select", label:"Брошюровка", default:"Нет",
+      options:()=>["Нет","Пружина","Скобы"]},
+    {key:"bindingEdge", type:"select", label:"Край", default:"Длинный",
+      options:()=>["Длинный","Короткий"], showIf:v=>v.binding!=="Нет"},
+    {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:10, min:0},
+    {key:"discount", type:"number", label:"Скидка клиента, %", default:0, min:0}
+  ],
+  calc(v,P){
+    let iw, ih;
+    if (v.format === "Свободный"){ iw=v.itemWidth; ih=v.itemHeight; }
+    else { const f=P.formats[v.format]; iw=f?f.w:v.itemWidth; ih=f?f.h:v.itemHeight; }
+    const sheetW=P.sheetSRA3.width, sheetH=P.sheetSRA3.height;
+    const perSheet = Math.max(
+      Math.floor(sheetW/iw)*Math.floor(sheetH/ih),
+      Math.floor(sheetH/iw)*Math.floor(sheetW/ih)
+    );
+    if (!perSheet || perSheet<=0){
+      return {error:`Изделие ${iw}х${ih} мм не помещается на лист SRA3 (${sheetW}х${sheetH} мм)`};
+    }
+    const sheetPrice = (P.sra3Grid[v.density]||{})[v.colorMode] || 0;
+    const laminationPrice = v.lamination==="Нет" ? 0 :
+      (P.lamination.types[v.lamination]||0) + (P.lamination.finish[v.finish]||0);
+    let pricePerItem = (sheetPrice*1.8)/perSheet + laminationPrice/perSheet;
+    const discCoef = lookupTier(P.tirazhDiscount, v.qty);
+    // доп. услуги (добавляются уже к цене за шт, скидка за тираж на них не распространяется)
+    if (v.big === "Да") pricePerItem += P.sra3Extras.bigPrice;
+    if (v.contourCut !== "Нет") pricePerItem += P.sra3Extras.contourCut[v.contourCut]||0;
+    if (v.binding === "Пружина"){
+      const edgeMm = v.bindingEdge === "Короткий" ? Math.min(iw,ih) : Math.max(iw,ih);
+      pricePerItem += P.sra3Extras.spring * edgeMm;
+    } else if (v.binding === "Скобы"){
+      pricePerItem += P.sra3Extras.staple;
+    }
+    const total = pricePerItem*discCoef*(1+v.markup/100)*(1-v.discount/100)*v.qty;
+    const dimsOrFormat = v.format==="Свободный" ? `${iw}х${ih} мм` : v.format;
+    const colorPlus = v.colorMode.replace("x","+");
+    let specs = `Печать ${dimsOrFormat}, ${v.density} г, ${colorPlus}`;
+    if (v.lamination!=="Нет"){
+      const lamLabel = (P.lamination.labels||{})[v.lamination] || v.lamination;
+      const finLabel = v.finish==="Матовая" ? "Матовая" : "Глянцевая";
+      specs += `, ламинация ${lamLabel} ${finLabel}`;
+    }
+    if (v.big==="Да") specs += `, Биг ${v.qty}шт`;
+    if (v.contourCut!=="Нет") specs += `, с резкой по контуру`;
+    if (v.binding!=="Нет") specs += `, ${v.binding==="Пружина"?"пружина":"скобы"} по ${v.bindingEdge.toLowerCase()}у краю`;
+    return { total, qty:v.qty, unitPrice: total/v.qty, specs };
+  }
+},
+
+// ---- ВИЗИТКИ ----------------------------------------------------------------
+{
+  id:"businessCards", group:"Печать", title:"Визитки", icon:"🏷", invoiceType:"service",
+  fields:[
+    {key:"density", type:"select", label:"Плотность, г", default:"300", options:(P)=>optKeys(P.sra3Grid)},
+    {key:"colorMode", type:"select", label:"Цветность", default:"4x4", options:()=>["4x0","4x4","4x1","1x0","1x1"]},
+    {key:"qty", type:"number", label:"Тираж, шт", default:100, min:1}
+  ],
+  calc(v,P){
+    const price = P.businessCards.pricePerItem;
+    const discCoef = lookupTier(P.tirazhDiscount, v.qty);
+    const total = price*discCoef*v.qty;
+    const colorPlus = v.colorMode.replace("x","+");
+    const specs = `Печать визитки ${v.density}гр ${colorPlus}`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs};
+  }
+},
+
+// ---- ДИПЛОМЫ / ГРАМОТЫ -------------------------------------------------------
+{
+  id:"diplomas", group:"Печать", title:"Дипломы / Грамоты", icon:"🎓", invoiceType:"service",
+  fields:[ {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1} ],
+  calc(v,P){
+    const price = P.diplomas.pricePerItem;
+    const discCoef = lookupTier(P.tirazhDiscount, v.qty);
+    const total = price*discCoef*v.qty;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs:`Печать диплома/грамоты`};
+  }
+},
+
+// ---- ПВХ ----------------------------------------------------------------------
+{
+  id:"pvc", group:"Жёсткие материалы", title:"ПВХ", icon:"🟦",
+  invoiceType:"service",
+  fields:[
+    {key:"pvcType", type:"select", label:"Тип изделия", default:"Лист",
+      options:()=>["Лист","Стенд","Табличка"]},
+    {key:"thickness", type:"select", label:"Толщина ПВХ", default:"5 мм", options:(P)=>optKeys(P.pvc.thickness)},
+    {key:"cutType", type:"select", label:"Тип резки", default:"Резка по форме", options:(P)=>optKeys(P.pvc.cutType)},
+    {key:"width", type:"number", label:"Ширина, мм", default:500, min:1},
+    {key:"height", type:"number", label:"Высота, мм", default:474, min:1},
+    {key:"pocketFormat", type:"select", label:"Карман", default:"Нет",
+      options:(P)=>optKeys(P.pvc.pockets), showIf:v=>v.pvcType==="Стенд"},
+    {key:"pocketQty", type:"number", label:"Кол-во карманов", default:1, min:1,
+      showIf:v=>v.pvcType==="Стенд" && v.pocketFormat!=="Нет"},
+    {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:0, min:0},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0}
+  ],
+  calc(v,P){
+    const area = v.width*v.height/1e6;
+    const price = P.pvc.thickness[v.thickness]||0;
+    const cutCoef = P.pvc.cutType[v.cutType]||1;
+    let pocketCost = 0;
+    if (v.pvcType==="Стенд" && v.pocketFormat!=="Нет"){
+      pocketCost = (P.pvc.pockets[v.pocketFormat]||0)*(v.pocketQty||1);
+    }
+    const total = (price*cutCoef*area + pocketCost)*(1+v.markup/100)*(1-v.discount/100)*v.qty;
+    const w=v.width, h=v.height;
+    let specs, specsGoods;
+    if (v.pvcType==="Стенд"){
+      const pocketPart = (v.pocketFormat!=="Нет") ? ` с карманами ${v.pocketFormat} ${v.pocketQty||1}шт` : "";
+      specs = `Изготовление стенда из ПВХ ${v.thickness}, ${w}х${h} мм${pocketPart}`;
+      specsGoods = `Стенд из ПВХ ${v.thickness}, ${w}х${h} мм${pocketPart}`;
+    } else if (v.pvcType==="Табличка"){
+      specs = `Изготовление таблички из ПВХ ${v.thickness}, ${w}х${h} мм`;
+      specsGoods = `Табличка из ПВХ ${v.thickness}, ${w}х${h} мм`;
+    } else {
+      specs = `Изготовление ПВХ ${v.thickness}, ${w}х${h} мм`;
+      specsGoods = `Изделие из ПВХ ${v.thickness}, ${w}х${h} мм`;
+    }
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
+  }
+},
+
+// ---- АКРИЛ --------------------------------------------------------------------
+{
+  id:"acrylic", group:"Жёсткие материалы", title:"Акрил", icon:"🔷",
+  invoiceType:"service",
+  fields:[
+    {key:"kind", type:"select", label:"Тип изделия", default:"Лист",
+      options:()=>["Лист","Медаль","Стелла"]},
+    // Лист
+    {key:"thickness", type:"select", label:"Толщина", default:"2 мм",
+      options:(P)=>optKeys(P.acrylic.thickness), showIf:v=>v.kind==="Лист"},
+    {key:"width", type:"number", label:"Ширина, мм", default:100, min:1,
+      showIf:v=>v.kind==="Лист"},
+    {key:"height", type:"number", label:"Высота, мм", default:200, min:1,
+      showIf:v=>v.kind==="Лист"},
+    // Стелла (ножка учитывается в расчёте, не пишется в буфере)
+    {key:"stellaThickness", type:"select", label:"Толщина", default:"2 мм",
+      options:(P)=>optKeys(P.acrylic.thickness), showIf:v=>v.kind==="Стелла"},
+    {key:"stellaWidth", type:"number", label:"Ширина, мм", default:100, min:1,
+      showIf:v=>v.kind==="Стелла"},
+    {key:"stellaHeight", type:"number", label:"Высота, мм", default:200, min:1,
+      showIf:v=>v.kind==="Стелла"},
+    {key:"stellaLeg", type:"number", label:"Ножка, мм", default:22, min:0,
+      showIf:v=>v.kind==="Стелла"},
+    // Медаль
+    {key:"medalThickness", type:"select", label:"Толщина пластика", default:"4 мм",
+      options:(P)=>optKeys(P.medals), showIf:v=>v.kind==="Медаль"},
+    {key:"medalSize", type:"select", label:"Размер", default:"6 см",
+      options:(P,v)=>optKeys(P.medals[v.medalThickness]||{}), showIf:v=>v.kind==="Медаль"},
+    {key:"medalFastening", type:"select", label:"Крепление", default:"Люверс + лента атлас 24мм",
+      options:()=>["Люверс + лента атлас 24мм","Нет"], showIf:v=>v.kind==="Медаль"},
+    // Общее
+    {key:"markup", type:"number", label:"Наценка, %", default:2, min:0,
+      showIf:v=>v.kind!=="Медаль"},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0,
+      showIf:v=>v.kind!=="Медаль"},
+    {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1}
+  ],
+  calc(v,P){
+    if (v.kind === "Медаль"){
+      const price = (P.medals[v.medalThickness]||{})[v.medalSize] || 0;
+      const total = price*v.qty;
+      const fasten = v.medalFastening!=="Нет" ? `, с лентой атлас 24мм, крепление люверс` : "";
+      // Конвертация "6 см" → "60х60 мм"
+      const sizeMm = (() => {
+        const n = parseFloat(v.medalSize);
+        return isNaN(n) ? v.medalSize : `${n*10}х${n*10} мм`;
+      })();
+      const specs = `Изготовление медали из акрила ${v.medalThickness} ${v.medalSize}, с УФ печатью${fasten}`;
+      const specsGoods = `Медаль ${v.medalThickness} ${sizeMm} из акрила, с УФ печатью${fasten}`;
+      return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
+    }
+    if (v.kind === "Стелла"){
+      const area = (v.stellaWidth*(v.stellaHeight+v.stellaLeg))/1e6;
+      const price = P.acrylic.thickness[v.stellaThickness]||0;
+      const total = price*area*(1+v.markup/100)*(1-v.discount/100)*v.qty;
+      const specs = `Изготовление стеллы из акрила ${v.stellaThickness}, ${v.stellaWidth}х${v.stellaHeight} мм`;
+      const specsGoods = `Стелла из акрила ${v.stellaThickness}, ${v.stellaWidth}х${v.stellaHeight} мм`;
+      return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
+    }
+    // Лист — без ножки
+    const area = (v.width*v.height)/1e6;
+    const price = P.acrylic.thickness[v.thickness]||0;
+    const total = price*area*(1+v.markup/100)*(1-v.discount/100)*v.qty;
+    const specs = `Изготовление изделия из акрила ${v.thickness}, ${v.width}х${v.height} мм`;
+    const specsGoods = `Изделие из акрила ${v.thickness}, ${v.width}х${v.height} мм`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
+  }
+},
+
+// ---- ХОЛСТЫ ------------------------------------------------------------------
+{
+  id:"canvas", group:"Жёсткие материалы", title:"Холсты", icon:"🖼", invoiceType:"good",
+  fields:[
+    {key:"type", type:"select", label:"Тип холста", default:"С подрамником", options:(P)=>optKeys(P.canvas)},
+    {key:"width", type:"number", label:"Ширина, м", default:0.5, min:0.01, step:0.01},
+    {key:"height", type:"number", label:"Высота, м", default:0.5, min:0.01, step:0.01},
+    {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:0, min:0},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0}
+  ],
+  calc(v,P){
+    const price = P.canvas[v.type]||0;
+    const total = price*v.width*v.height*(1+v.markup/100)*(1-v.discount/100)*v.qty;
+    const typePhrase = v.type==="С подрамником" ? "с подрамником" : "без подрамника";
+    const specs      = `Изготовление холста ${typePhrase} ${v.width}х${v.height} м`;
+    const specsGoods = `Холст ${typePhrase} ${v.width}х${v.height} м`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
+  }
+},
+
+// ---- САМОКЛЕЙКА --------------------------------------------------------------
+{
+  id:"selfAdhesive", group:"Печать", title:"Самоклейка", icon:"🏷", invoiceType:"good",
+  fields:[
+    {key:"format", type:"select", label:"Формат", default:"Свободный",
+      options:(P)=> ["Свободный", ...optKeys(P.selfAdhesive.presets), "<10см"]},
+    {key:"width", type:"number", label:"Ширина, мм", default:200, min:1, showIf:v=>v.format==="Свободный"},
+    {key:"height", type:"number", label:"Высота, мм", default:400, min:1, showIf:v=>v.format==="Свободный"},
+    {key:"cutType", type:"select", label:"Тип резки", default:"На монтажке", options:(P)=>optKeys(P.selfAdhesive.cutType),
+      showIf:v=>v.format==="Свободный"},
+    {key:"smallWidth", type:"number", label:"Ширина наклейки, мм", default:70, min:1, showIf:v=>v.format==="<10см"},
+    {key:"smallHeight", type:"number", label:"Высота наклейки, мм", default:70, min:1, showIf:v=>v.format==="<10см"},
+    {key:"gap", type:"number", label:"Зазор между наклейками, мм", default:(P)=>P.selfAdhesive.smallRoll.gap, min:0,
+      showIf:v=>v.format==="<10см"},
+    {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:0, min:0},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0}
+  ],
+  calc(v,P){
+    if (v.format === "<10см"){
+      const sr = P.selfAdhesive.smallRoll;
+      const usableWidth = sr.rollWidth - sr.edgeMargin*2;
+      const nPerRow = Math.max(1, Math.floor((usableWidth + v.gap) / (v.smallWidth + v.gap)));
+      const rows = Math.ceil(v.qty / nPerRow);
+      const fitQty = rows * nPerRow; // физически вместившееся количество (с учётом неполного последнего ряда)
+      const lengthM = (rows * (v.smallHeight + v.gap)) / 1000;
+      const areaM2 = (sr.rollWidth/1000) * lengthM; // платим за полную ширину рулона
+      const cost = areaM2 * P.selfAdhesive.pricePerM2;
+      const pricePerItem = (cost/fitQty)*(1+v.markup/100)*(1-v.discount/100);
+      const total = pricePerItem*v.qty;
+      return {total, qty:v.qty, unitPrice: pricePerItem,
+        specs:`Печать наклейки ${v.smallWidth}х${v.smallHeight} мм`};
+    }
+    if (v.format !== "Свободный"){
+      const pr = P.selfAdhesive.presets[v.format];
+      const pricePerItem = pr ? pr.price : 0;
+      const total = pricePerItem*v.qty*(1+v.markup/100)*(1-v.discount/100);
+      return {total, qty:v.qty, unitPrice: total/v.qty, specs:`Печать наклейки ${v.format}`};
+    }
+    const w=v.width, h=v.height;
+    const cutCoef = P.selfAdhesive.cutType[v.cutType]||1;
+    const pricePerItem = P.selfAdhesive.pricePerM2*(w/1000)*(h/1000)*cutCoef;
+    const total = pricePerItem*v.qty*(1+v.markup/100)*(1-v.discount/100);
+    const cutPhrase = v.cutType==="Без резки" ? "без резки" : v.cutType==="Резка плоттером" ? "с резкой" : "на монтажке";
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs:`Печать наклейки ${w}х${h} мм ${cutPhrase}`};
+  }
+},
+
+// ---- ДТФ ----------------------------------------------------------------------
+{
+  id:"dtf", group:"Нанесение", title:"ДТФ (DTF)", icon:"👕",
+  invoiceType:"service",
+  fields:[
+    {key:"material", type:"select", label:"Материал", default:"Заказчика",
+      options:()=>["Заказчика","Наш"]},
+    {key:"ourItem", type:"select", label:"Изделие", default:"Футболка",
+      options:(P)=>optKeys(P.dtf.ourItems), showIf:v=>v.material==="Наш"},
+    {key:"prints", type:"list", label:"Нанесения (зоны печати на одном изделии)",
+      addLabel:"нанесение", itemLabel:"Нанесение", minItems:1,
+      itemFields:[
+        {key:"format", type:"select", label:"Формат", default:"Свободный размер",
+          options:(P)=> ["Свободный размер", ...optKeys(P.dtf.fixed)]},
+        {key:"width", type:"number", label:"Ширина, мм", default:270, min:1,
+          showIf:item=>item.format==="Свободный размер"},
+        {key:"height", type:"number", label:"Высота, мм", default:330, min:1,
+          showIf:item=>item.format==="Свободный размер"}
+      ]},
+    {key:"qty", type:"number", label:"Тираж, шт", default:2, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:20, min:0},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0}
+  ],
+  calc(v,P){
+    const prints = (v.prints && v.prints.length) ? v.prints : [{format:"Свободный размер", width:270, height:330}];
+    let sumPerItem = 0;
+    const labels = [];
+    prints.forEach(pr=>{
+      let raw;
+      if (pr.format === "Свободный размер"){ raw = (pr.width*pr.height/1e6)*P.dtf.freePerM2; }
+      else { raw = P.dtf.fixed[pr.format]||0; }
+      sumPerItem += Math.max(P.dtf.minPrice, raw);
+      labels.push(pr.format==="Свободный размер" ? `${pr.width}х${pr.height}мм` : pr.format);
+    });
+    // Если материал "Наш" — прибавляем цену изделия
+    let itemPhrase;
+    if (v.material==="Наш"){
+      const ourItemPrice = P.dtf.ourItems[v.ourItem]||0;
+      sumPerItem += ourItemPrice;
+      // винительный падеж — таблица
+      const accMap = {
+        "Футболка":"футболку","Худи":"худи","Рубашка поло":"рубашку поло",
+        "Сумка поясная":"сумку поясную","Шоппер":"шоппер","Мешок для обуви":"мешок для обуви"
+      };
+      itemPhrase = `на ${accMap[v.ourItem]||v.ourItem}`;
+    } else {
+      itemPhrase = "на вашем изделии";
+    }
+    const total = sumPerItem*v.qty*(1+v.markup/100)*(1-v.discount/100);
+    const sizePart = labels.join(" + ");
+    const specs = `ДТФ нанесение ${sizePart}, ${itemPhrase}`;
+    // В счёте на товар — для нашего материала показываем изделие, для чужого — то же самое
+    const specsGoods = v.material==="Наш"
+      ? `${v.ourItem} с ДТФ нанесением ${sizePart}`
+      : `ДТФ нанесение ${sizePart}, на вашем изделии`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
+  }
+},
+
+// ---- СУБЛИМАЦИЯ --------------------------------------------------------------
+{
+  id:"sublimation", group:"Нанесение", title:"Сублимация (синтетика)", icon:"🎨", invoiceType:"service",
+  fields:[
+    {key:"productType", type:"select", label:"Тип изделия", default:"Футболка", options:(P)=>optKeys(P.sublimation.base)},
+    {key:"width", type:"number", label:"Ширина нанесения, мм", default:200, min:1},
+    {key:"height", type:"number", label:"Высота нанесения, мм", default:200, min:1},
+    {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:20, min:0},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0}
+  ],
+  calc(v,P){
+    const base = P.sublimation.base[v.productType]||0;
+    const printCost = (v.width*v.height/1e6)*P.dtf.freePerM2;
+    const total = (base+printCost)*v.qty*(1+v.markup/100)*(1-v.discount/100);
+    const accMap = {
+      "А4":"А4","А5":"А5","Шоппер":"шоппере","Футболка":"футболке"
+    };
+    const prepPhrase = accMap[v.productType] ? `на ${accMap[v.productType]}` : `на ${v.productType}`;
+    const specs      = `Сублимация ${prepPhrase}, нанесение ${v.width}х${v.height} мм`;
+    const specsGoods = `${v.productType} с сублимационной печатью ${v.width}х${v.height} мм`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
+  }
+},
+
+// ---- БАННЕР -------------------------------------------------------------------
+{
+  id:"banner", group:"Большой формат", title:"Баннер", icon:"🚩", invoiceType:"good",
+  fields:[
+    {key:"density", type:"select", label:"Плотность", default:"440 г/м²", options:(P)=>optKeys(P.banner.density)},
+    {key:"width", type:"number", label:"Ширина, м", default:1, min:0.01, step:0.01},
+    {key:"height", type:"number", label:"Высота, м", default:1.5, min:0.01, step:0.01},
+    {key:"finishing", type:"select", label:"Люверсы / отделка", default:"Проклейка",
+      options:()=>["Без отделки","Люверс + проклейка","Проклейка"]},
+    {key:"eyeletStep", type:"number", label:"Шаг люверсов, см", default:20, min:1, showIf:v=>v.finishing==="Люверс + проклейка"},
+    {key:"rollUp", type:"select", label:"Ролл Ап / замена", default:"Нет", options:()=>["Нет","Ролл Ап конструкция","Замена полотна"]},
+    {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:0, min:0},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0}
+  ],
+  calc(v,P){
+    const area = v.width*v.height;
+    const perimeter = (v.width+v.height)*2;
+    const materialPrice = P.banner.density[v.density]||0;
+    const canvasCost = materialPrice*area;
+    let eyeletsCount = 0, finishingCost = 0;
+    if (v.finishing==="Люверс + проклейка"){
+      eyeletsCount = Math.max(4, Math.ceil(perimeter*100/v.eyeletStep));
+      finishingCost = (v.width+v.height)*P.banner.eyeletBasePrice/P.banner.eyeletDivisor*P.banner.eyeletFactorFull;
+    } else if (v.finishing==="Проклейка"){
+      finishingCost = (v.width+v.height)*P.banner.eyeletBasePrice/P.banner.eyeletDivisor*P.banner.eyeletFactorGlueOnly;
+    }
+    const rollUpCost = v.rollUp==="Нет" ? 0 : (P.banner.rollUp[v.rollUp]||0);
+    const total = (canvasCost+finishingCost+rollUpCost)*(1+v.markup/100)*(1-v.discount/100)*v.qty;
+    const verb = v.finishing==="Без отделки" ? "Печать" : "Изготовление";
+    const finPhrase = v.finishing==="Люверс + проклейка" ? " с люверсами" : v.finishing==="Проклейка" ? " с проклейкой" : "";
+    let specs = `${verb} баннера ${v.width}х${v.height} м${finPhrase}`;
+    if (v.rollUp!=="Нет") specs += `, ${v.rollUp}`;
+    const specsGoods = `Баннер ${v.width}х${v.height} м${finPhrase}${v.rollUp!=="Нет" ? ", "+v.rollUp : ""}`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs, specsGoods};
+  }
+},
+
+// ---- ПОСТЕР А2+ ----------------------------------------------------------------
+{
+  id:"poster", group:"Большой формат", title:"Постер (А2+)", icon:"🖼", invoiceType:"service",
+  fields:[
+    {key:"width", type:"number", label:"Ширина, м", default:0.6, min:0.01, step:0.01},
+    {key:"height", type:"number", label:"Высота, м", default:0.84, min:0.01, step:0.01},
+    {key:"qty", type:"number", label:"Тираж, шт", default:1, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:0, min:0},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0}
+  ],
+  calc(v,P){
+    const total = v.width*v.height*P.poster.pricePerM2*(1+v.markup/100)*(1-v.discount/100)*v.qty;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs:`Печать ${v.width}х${v.height} м`};
+  }
+},
+
+// ---- БЛОКНОТЫ -----------------------------------------------------------------
+{
+  id:"notebooks", group:"Сувенирка", title:"Блокноты", icon:"📓", invoiceType:"good",
+  fields:[
+    {key:"format", type:"select", label:"Формат", default:"А6",
+      options:(P)=> optKeys((P.notebooks.components["Обложка"])||{})},
+    {key:"coverDensity", type:"select", label:"Плотность обложки", default:"250 гр",
+      options:()=>["250 гр","300 гр","350 гр"]},
+    {key:"coverPrint", type:"select", label:"Печать обложки", default:"4+0",
+      options:()=>["4+0","4+4","1+0"]},
+    {key:"blockColor", type:"select", label:"Блок", default:"Белый",
+      options:()=>["Белый","Цветной"]},
+    {key:"backPrint", type:"select", label:"Задник", default:"Без печати",
+      options:()=>["Без печати","С печатью"]},
+    {key:"springPos", type:"select", label:"Пружина", default:"Сверху",
+      options:()=>["Сверху","Сбоку"]},
+    {key:"qty", type:"number", label:"Тираж, шт", default:500, min:1},
+    {key:"markup", type:"number", label:"Наценка, %", default:0, min:0},
+    {key:"discount", type:"number", label:"Скидка, %", default:0, min:0}
+  ],
+  calc(v,P){
+    const c = P.notebooks.components;
+    const cover=(c["Обложка"]||{})[v.format]||0, back=(c["Задник"]||{})[v.format]||0,
+          spring=(c["Пружина"]||{})[v.format]||0, sheet=(c["Лист"]||{})[v.format]||0;
+    const sheets = sheet*P.notebooks.sheetsCount;
+    const cost1 = cover+back+spring+sheets;
+    const total = cost1*v.qty*(1+v.markup/100)*(1-v.discount/100);
+    const specs = `Изготовление блокнота ${v.format}, обложка ${v.coverDensity} ${v.coverPrint}, блок ${P.notebooks.sheetsCount} л ${v.blockColor.toLowerCase()}, задник ${v.backPrint.toLowerCase()}, пружина ${v.springPos.toLowerCase()}`;
+    return {total, qty:v.qty, unitPrice: total/v.qty, specs};
+  }
+}
+
+];
+
+const PRODUCT_GROUPS = ["Печать","Нанесение","Жёсткие материалы","Большой формат","Сувенирка"];
+
+/* =========================================================================
+   4. КАЛЬКУЛЯТОР — состояние и рендер
+   ========================================================================= */
+let currentProductId = PRODUCTS[0].id;
+const formValues = {}; // productId -> {key:value}
+
+function getProduct(id){ return PRODUCTS.find(p=>p.id===id); }
+
+function getFieldValue(product, field){
+  const store = formValues[product.id] || (formValues[product.id]={});
+  if (store[field.key] === undefined){
+    store[field.key] = typeof field.default === "function" ? field.default(PRICES) : field.default;
+  }
+  return store[field.key];
+}
+function setFieldValue(product, key, val){
+  const store = formValues[product.id] || (formValues[product.id]={});
+  store[key] = val;
+}
+function getValuesObj(product){
+  const store = formValues[product.id] || (formValues[product.id]={});
+  product.fields.forEach(f=>{
+    if (store[f.key]===undefined) store[f.key] = typeof f.default === "function" ? f.default(PRICES) : f.default;
+  });
+  return store;
+}
+
+function renderProductNav(){
+  const nav = document.getElementById("productNav");
+  nav.innerHTML = "";
+  PRODUCT_GROUPS.forEach(group=>{
+    const items = PRODUCTS.filter(p=>p.group===group);
+    if (!items.length) return;
+    const wrap = el("div",{class:"nav-group"});
+    wrap.appendChild(el("div",{class:"nav-group-title"},[group]));
+    items.forEach(p=>{
+      const btn = el("button",{
+        class: "nav-item" + (p.id===currentProductId ? " active":""),
+        type:"button",
+        onClick: ()=>{ currentProductId=p.id; renderProductNav(); renderProductForm(); }
+      },[ el("span",{class:"ico"},[p.icon]), p.title ]);
+      wrap.appendChild(btn);
+    });
+    nav.appendChild(wrap);
+  });
+}
+
+function renderProductForm(){
+  const product = getProduct(currentProductId);
+  const values = getValuesObj(product);
+  const formEl = document.getElementById("productForm");
+  formEl.innerHTML = "";
+  formEl.appendChild(el("h2",{},[product.icon+" "+product.title]));
+  formEl.appendChild(el("div",{class:"hint"},["Заполни параметры — итог считается сразу. Цены берутся из листа «Настройки цен»."]));
+
+  const grid = el("div",{class:"field-grid"});
+  product.fields.forEach(field=>{
+    if (field.showIf && !field.showIf(values)) return;
+    if (field.type === "list"){
+      const fieldWrap = el("div",{class:"field full"});
+      fieldWrap.appendChild(el("label",{},[field.label]));
+      renderListField(fieldWrap, field, values);
+      grid.appendChild(fieldWrap);
+      return;
+    }
+    const fieldWrap = el("div",{class:"field"});
+    fieldWrap.appendChild(el("label",{for:"f_"+field.key},[field.label]));
+    let input;
+    if (field.type==="select"){
+      const opts = typeof field.options==="function" ? field.options(PRICES, values) : (field.options||[]);
+      if (opts.indexOf(values[field.key]) === -1) values[field.key] = opts[0];
+      input = el("select",{id:"f_"+field.key});
+      opts.forEach(o=> input.appendChild(el("option",{value:o, ...(o===values[field.key]?{selected:"selected"}:{})},[o])));
+      input.addEventListener("change", ()=>{ setFieldValue(product, field.key, input.value); renderProductForm(); });
+    } else {
+      input = el("input",{id:"f_"+field.key, type:"number", value:values[field.key],
+        ...(field.min!==undefined?{min:field.min}:{}), step: field.step || "any"});
+      input.addEventListener("input", ()=>{
+        const num = parseFloat(input.value);
+        setFieldValue(product, field.key, isNaN(num) ? 0 : num);
+        updateResultPanel();
+      });
+    }
+    fieldWrap.appendChild(input);
+    grid.appendChild(fieldWrap);
+  });
+  formEl.appendChild(grid);
+  updateResultPanel();
+}
+
+// Список повторяющихся под-записей (сейчас используется только для зон печати ДТФ).
+// field.itemFields описывает поля ОДНОЙ записи списка — те же типы (number/select),
+// что и обычные поля формы, плюс showIf(item) для условной видимости внутри записи.
+function makeListItemDefault(field, P){
+  const obj = {};
+  field.itemFields.forEach(sf=>{ obj[sf.key] = typeof sf.default === "function" ? sf.default(P) : sf.default; });
+  return obj;
+}
+function renderListField(container, field, values){
+  if (!Array.isArray(values[field.key]) || !values[field.key].length){
+    values[field.key] = [ makeListItemDefault(field, PRICES) ];
+  }
+  const list = values[field.key];
+  const wrap = el("div",{class:"list-field"});
+  list.forEach((item, idx)=>{
+    const card = el("div",{class:"list-item-card"});
+    const head = el("div",{class:"list-item-head"},[ el("span",{},[`${field.itemLabel||"Позиция"} ${idx+1}`]) ]);
+    if (list.length > (field.minItems||1)){
+      head.appendChild(el("button",{class:"icon-btn", type:"button", title:"Удалить",
+        onClick:()=>{ list.splice(idx,1); renderProductForm(); }},["✕"]));
+    }
+    card.appendChild(head);
+    const itemGrid = el("div",{class:"field-grid"});
+    field.itemFields.forEach(sf=>{
+      if (sf.showIf && !sf.showIf(item)) return;
+      const fw = el("div",{class:"field"});
+      fw.appendChild(el("label",{},[sf.label]));
+      let input;
+      if (sf.type === "select"){
+        const opts = typeof sf.options === "function" ? sf.options(PRICES, item) : (sf.options||[]);
+        if (opts.indexOf(item[sf.key]) === -1) item[sf.key] = opts[0];
+        input = el("select",{});
+        opts.forEach(o=> input.appendChild(el("option",{value:o, ...(o===item[sf.key]?{selected:"selected"}:{})},[o])));
+        input.addEventListener("change", ()=>{ item[sf.key]=input.value; renderProductForm(); });
+      } else {
+        input = el("input",{type:"number", value:item[sf.key], ...(sf.min!==undefined?{min:sf.min}:{}), step:sf.step||"any"});
+        input.addEventListener("input", ()=>{
+          const num = parseFloat(input.value);
+          item[sf.key] = isNaN(num) ? 0 : num;
+          updateResultPanel();
+        });
+      }
+      fw.appendChild(input);
+      itemGrid.appendChild(fw);
+    });
+    card.appendChild(itemGrid);
+    wrap.appendChild(card);
+  });
+  const addBtn = el("button",{class:"btn-add", type:"button"},["+ "+(field.addLabel||"добавить")]);
+  addBtn.addEventListener("click", ()=>{
+    list.push(makeListItemDefault(field, PRICES));
+    renderProductForm();
+  });
+  wrap.appendChild(addBtn);
+  container.appendChild(wrap);
+}
+
+function computeCurrent(){
+  const product = getProduct(currentProductId);
+  const values = getValuesObj(product);
+  try{
+    const result = product.calc(values, PRICES);
+    if (!result.error){
+      // цены — целые рубли, округление вверх; итог пересчитываем от округлённой цены за шт,
+      // чтобы сумма в счёте всегда точно равнялась цене×количество
+      result.unitPrice = Math.ceil(result.unitPrice);
+      result.total = result.unitPrice * result.qty;
+    }
+    return {product, values, result};
+  }catch(e){
+    return {product, values, result:{error:"Не удалось рассчитать: проверь введённые значения."}};
+  }
+}
+
+function updateResultPanel(){
+  const {product, values, result} = computeCurrent();
+  const panel = document.getElementById("resultPanel");
+  const mtbSum = document.getElementById("mtbSum");
+  const mtbBtn = document.getElementById("mtbAddBtn");
+  panel.innerHTML = "";
+  if (result.error){
+    panel.appendChild(el("div",{class:"label"},["Результат"]));
+    panel.appendChild(el("div",{class:"field-error"},[result.error]));
+    mtbSum.textContent = "—";
+    mtbBtn.disabled = true;
+    mtbBtn.onclick = null;
+    return;
+  }
+  const inner = el("div",{class:"corners"},[
+    el("span",{class:"corner tl"}), el("span",{class:"corner tr"}),
+    el("span",{class:"corner bl"}), el("span",{class:"corner br"})
+  ]);
+  inner.appendChild(el("div",{class:"label"},["Итого, "+product.title]));
+  inner.appendChild(el("div",{class:"result-total"},[fmtMoney(result.total)]));
+  inner.appendChild(el("div",{class:"unit"},[`${fmtMoney(result.unitPrice)} / шт · тираж ${fmtNum(result.qty)} шт`]));
+  inner.appendChild(el("div",{class:"result-specs"},[result.specs||""]));
+  panel.appendChild(inner);
+
+  const goodsText    = result.specsGoods || result.specs || "";
+  const serviceText  = result.specs || "";
+
+  const actions = el("div",{class:"result-actions"});
+
+  const copyPosBtn = el("button",{class:"btn btn-ghost btn-block", type:"button"},["📋 Позицию"]);
+  copyPosBtn.addEventListener("click", ()=>
+    copyTextToClipboard(clipLine(goodsText, result.qty, result.unitPrice, result.total), "Позиция скопирована"));
+
+  const copySvcBtn = el("button",{class:"btn btn-ghost btn-block", type:"button"},["📋 Услугу"]);
+  copySvcBtn.addEventListener("click", ()=>
+    copyTextToClipboard(clipLine(serviceText, result.qty, result.unitPrice, result.total), "Услуга скопирована"));
+
+  const copyRow = el("div",{class:"result-copy-row"});
+  copyRow.append(copyPosBtn, copySvcBtn);
+
+  const addBtn = el("button",{class:"btn btn-primary btn-block", type:"button"},["➕ Добавить в счёт"]);
+  addBtn.addEventListener("click", ()=> addToInvoice(product, values, result));
+
+  actions.append(copyRow, addBtn);
+  panel.appendChild(actions);
+
+  // та же сумма и то же действие — в закреплённой нижней панели для телефона
+  mtbSum.textContent = fmtMoney(result.total);
+  mtbBtn.disabled = false;
+  mtbBtn.onclick = () => addToInvoice(product, values, result);
+}
+
+/* =========================================================================
+   5. СЧЁТ (ЗАКАЗ)
+   ========================================================================= */
+function addToInvoice(product, values, result){
+  INVOICE.push({
+    id: uid(),
+    name: result.specs || product.title,
+    goodsName: result.specsGoods || result.specs || product.title,
+    qty: result.qty,
+    unitPrice: result.unitPrice,
+    total: result.total,
+    invoiceType: product.invoiceType || "good"
+  });
+  persistInvoice();
+  renderInvoice();
+  updateInvoiceBadge();
+  toast("Добавлено в счёт: "+product.title);
+}
+
+let invoiceClientDiscount = loadJSON("tipo_inv_discount_v1", 0);
+function persistDiscount(){ saveJSON("tipo_inv_discount_v1", invoiceClientDiscount); }
+
+function invoiceSum(){
+  const gross = INVOICE.reduce((s,i)=>s+i.total,0);
+  return Math.ceil(gross*(1-invoiceClientDiscount/100));
+}
+
+function updateInvoiceBadge(){
+  const badge = document.getElementById("invoiceCountBadge");
+  badge.textContent = INVOICE.length ? `(${INVOICE.length})` : "";
+}
+
+function renderInvoice(){
+  const wrap = document.getElementById("invoiceWrap");
+  wrap.innerHTML = "";
+  if (!INVOICE.length){
+    wrap.appendChild(el("div",{class:"card invoice-empty"},["Счёт пуст. Посчитай позицию в «Калькуляторе» или добавь свою позицию выше."]));
+    return;
+  }
+  const tableWrap = el("div",{class:"invoice-table-wrap"});
+  const table = el("table",{class:"invoice"});
+  const thead = el("thead",{},[ el("tr",{},[
+    el("th",{},["№"]), el("th",{},["Наименование"]),
+    el("th",{},["Кол-во"]), el("th",{},["Цена/шт"]), el("th",{},["Сумма"]), el("th",{})
+  ])]);
+  const tbody = el("tbody");
+  INVOICE.forEach((item, idx)=>{
+    const qtyInput = el("input",{class:"qty-edit", type:"number", min:"0", value:item.qty});
+    qtyInput.addEventListener("change", ()=>{
+      const q = parseFloat(qtyInput.value);
+      if (!isNaN(q) && q>=0){
+        item.qty = q; item.total = item.unitPrice*q;
+        persistInvoice(); renderInvoice();
+      }
+    });
+    const priceInput = el("input",{class:"price-edit", type:"number", min:"0", step:"1", value:item.unitPrice});
+    priceInput.addEventListener("change", ()=>{
+      const p = parseFloat(priceInput.value);
+      if (!isNaN(p) && p>=0){
+        item.unitPrice = Math.ceil(p); item.total = item.unitPrice*item.qty;
+        persistInvoice(); renderInvoice();
+      }
+    });
+    const delBtn = el("button",{class:"row-del", type:"button", title:"Удалить строку", onClick: ()=>{
+      INVOICE.splice(idx,1); persistInvoice(); renderInvoice(); updateInvoiceBadge();
+    }},["✕"]);
+    tbody.appendChild(el("tr",{},[
+      el("td",{class:"idx", "data-label":"№"},[String(idx+1)]),
+      el("td",{"data-label":"Наименование"},[item.name]),
+      el("td",{"data-label":"Кол-во"},[qtyInput]),
+      el("td",{class:"num", "data-label":"Цена/шт"},[priceInput]),
+      el("td",{class:"num", "data-label":"Сумма"},[fmtMoney(item.total)]),
+      el("td",{class:"action-cell"},[delBtn])
+    ]));
+  });
+  table.append(thead, tbody);
+  tableWrap.appendChild(table);
+  wrap.appendChild(tableWrap);
+
+  // скидка клиента
+  const discRow = el("div",{class:"discount-row"});
+  discRow.appendChild(el("label",{},"Скидка клиента, %"));
+  const discInput = el("input",{type:"number", min:"0", max:"100", step:"1", value:invoiceClientDiscount, class:"qty-edit"});
+  discInput.addEventListener("change",()=>{
+    const d = parseFloat(discInput.value);
+    invoiceClientDiscount = isNaN(d)||d<0 ? 0 : d>100 ? 100 : d;
+    persistDiscount(); renderInvoice();
+  });
+  discRow.appendChild(discInput);
+  const gross = INVOICE.reduce((s,i)=>s+i.total,0);
+  if (invoiceClientDiscount>0){
+    discRow.appendChild(el("span",{class:"discount-saved"},
+      [`−${fmtMoney(gross-invoiceSum())} экономия`]));
+  }
+  wrap.appendChild(discRow);
+
+  wrap.appendChild(el("div",{class:"invoice-total-bar"},[
+    el("span",{},["Итого к оплате:"]),
+    el("span",{class:"sum"},[fmtMoney(invoiceSum())])
+  ]));
+}
+
+// Строим текст для одной группы (услуги или товары)
+// type="service" → используем item.name (Изготовление/Печать...)
+// type="goods"   → используем item.goodsName (Изделие из ПВХ / Футболка с ДТФ...)
+// Оба счёта включают ВСЕ позиции счёта
+function buildGroupText(type, withPrices){
+  const items = INVOICE;
+  if (!items.length) return "";
+  const lines = [];
+  if (COMPANY.name) lines.push(COMPANY.name);
+  if (COMPANY.phone) lines.push(COMPANY.phone);
+  if (COMPANY.note) lines.push(COMPANY.note);
+  if (lines.length) lines.push("");
+  if (withPrices){
+    items.forEach(item=>{
+      const nm = type==="goods" ? (item.goodsName||item.name) : item.name;
+      lines.push(clipLine(nm, item.qty, item.unitPrice, item.total));
+    });
+    lines.push("");
+    if (invoiceClientDiscount>0) lines.push(`Скидка: ${invoiceClientDiscount}%`);
+    lines.push(`Итого: ${fmtSmart(invoiceSum())} рублей`);
+    lines.push("");
+    lines.push(`Оплата: ${COMPANY.payment || "Наличными / Счёт на Юр. лицо"}`);
+  } else {
+    items.forEach(item=>{
+      const nm = type==="goods" ? (item.goodsName||item.name) : item.name;
+      lines.push(`${nm} - ${fmtSmart(item.qty)}шт`);
+    });
+  }
+  return lines.join("\n");
+}
+
+function copyServices(){
+  if (!INVOICE.length){ toast("Счёт пуст"); return; }
+  copyTextToClipboard(buildGroupText("service", true), "Счёт на услуги скопирован");
+}
+function copyGoods(){
+  if (!INVOICE.length){ toast("Счёт пуст"); return; }
+  copyTextToClipboard(buildGroupText("goods", true), "Счёт на товар скопирован");
+}
+function copyServicesNP(){
+  if (!INVOICE.length){ toast("Счёт пуст"); return; }
+  copyTextToClipboard(buildGroupText("service", false), "Список услуг скопирован");
+}
+function copyGoodsNP(){
+  if (!INVOICE.length){ toast("Счёт пуст"); return; }
+  copyTextToClipboard(buildGroupText("goods", false), "Список товаров скопирован");
+}
+
+/* =========================================================================
+   6. НАСТРОЙКИ ЦЕН — генератор форм редактирования прямо из объекта PRICES
+   ========================================================================= */
+function onPricesChanged(){
+  persistPrices();
+  renderProductForm(); // пересчитать калькулятор с новыми ценами
+}
+
+// Простая карта "ключ -> число", например {"5 мм": 3750, ...}
+function renderMapEditor(container, map, opts={}){
+  const { step=0.01, addLabel="+ строка", newKeyBase="новое" } = opts;
+  function rerender(){
+    container.innerHTML = "";
+    const list = el("div",{class:"kv-list"});
+    Object.keys(map).forEach(key=>{
+      const row = el("div",{class:"kv-row"});
+      const ki = el("input",{type:"text", value:key});
+      ki.addEventListener("change", ()=>{
+        const nk = ki.value.trim();
+        if (nk && nk!==key && !(nk in map)){
+          const val = map[key]; delete map[key]; map[nk]=val;
+          onPricesChanged(); rerender();
+        } else { ki.value = key; }
+      });
+      const vi = el("input",{type:"number", step:String(step), value: map[key]==null ? "" : map[key]});
+      vi.addEventListener("input", ()=>{
+        const num = parseFloat(vi.value);
+        map[key] = isNaN(num) ? 0 : num;
+        onPricesChanged();
+      });
+      const del = el("button",{class:"icon-btn", type:"button", title:"Удалить"},["✕"]);
+      del.addEventListener("click", ()=>{ delete map[key]; onPricesChanged(); rerender(); });
+      row.append(ki, vi, del);
+      list.appendChild(row);
+    });
+    container.appendChild(list);
+    const addBtn = el("button",{class:"btn-add", type:"button"},[addLabel]);
+    addBtn.addEventListener("click", ()=>{
+      let nk = newKeyBase, i=1;
+      while (nk in map) nk = newKeyBase+" "+(++i);
+      map[nk] = 0; onPricesChanged(); rerender();
+    });
+    container.appendChild(addBtn);
+  }
+  rerender();
+}
+
+// Карта "ключ -> объект с подполями", например {"38 мм": {ge10:40, lt10:100}}
+function renderSubfieldMapEditor(container, map, subfields, opts={}){
+  const { newKeyBase="новое" } = opts;
+  function rerender(){
+    container.innerHTML = "";
+    const list = el("div",{class:"kv-list"});
+    Object.keys(map).forEach(key=>{
+      const row = el("div",{class:"kv-row"});
+      const ki = el("input",{type:"text", value:key});
+      ki.addEventListener("change", ()=>{
+        const nk = ki.value.trim();
+        if (nk && nk!==key && !(nk in map)){
+          const val = map[key]; delete map[key]; map[nk]=val;
+          onPricesChanged(); rerender();
+        } else { ki.value = key; }
+      });
+      row.appendChild(ki);
+      subfields.forEach(sf=>{
+        row.appendChild(el("span",{class:"sub-label"},[sf.label]));
+        const vi = el("input",{type:"number", step:"0.01", value: map[key][sf.key]==null ? "" : map[key][sf.key]});
+        vi.addEventListener("input", ()=>{
+          const num = parseFloat(vi.value);
+          map[key][sf.key] = isNaN(num) ? 0 : num;
+          onPricesChanged();
+        });
+        row.appendChild(vi);
+      });
+      const del = el("button",{class:"icon-btn", type:"button", title:"Удалить"},["✕"]);
+      del.addEventListener("click", ()=>{ delete map[key]; onPricesChanged(); rerender(); });
+      row.appendChild(del);
+      list.appendChild(row);
+    });
+    container.appendChild(list);
+    const addBtn = el("button",{class:"btn-add", type:"button"},["+ строка"]);
+    addBtn.addEventListener("click", ()=>{
+      let nk = newKeyBase, i=1;
+      while (nk in map) nk = newKeyBase+" "+(++i);
+      const obj = {}; subfields.forEach(sf=> obj[sf.key]=0);
+      map[nk] = obj; onPricesChanged(); rerender();
+    });
+    container.appendChild(addBtn);
+  }
+  rerender();
+}
+
+// Двумерная таблица "строка x столбец -> число", например сетка цен SRA3
+function renderGridEditor(container, gridObj, opts={}){
+  const { rowLabel="Строка", colLabel="Столбец" } = opts;
+  function colKeys(){
+    const set = new Set();
+    Object.values(gridObj).forEach(row=> Object.keys(row).forEach(c=>set.add(c)));
+    return Array.from(set);
+  }
+  function rerender(){
+    container.innerHTML = "";
+    const wrap = el("div",{class:"grid-table-wrap"});
+    const cols = colKeys();
+    const table = el("table",{class:"grid-table"});
+    const headRow = el("tr",{},[ el("th",{},[rowLabel]) ]);
+    cols.forEach(c=>{
+      const th = el("th");
+      const ci = el("input",{class:"col-key", type:"text", value:c});
+      ci.addEventListener("change", ()=>{
+        const nc = ci.value.trim();
+        if (nc && nc!==c){
+          Object.values(gridObj).forEach(row=>{
+            if (c in row){ row[nc]=row[c]; delete row[c]; }
+          });
+          onPricesChanged(); rerender();
+        } else { ci.value = c; }
+      });
+      th.appendChild(ci);
+      headRow.appendChild(th);
+    });
+    const delColTh = el("th");
+    headRow.appendChild(delColTh);
+    const thead = el("thead",{},[headRow]);
+    const tbody = el("tbody");
+    Object.keys(gridObj).forEach(rk=>{
+      const tr = el("tr");
+      const rowKeyTd = el("td");
+      const ri = el("input",{class:"row-key", type:"text", value:rk});
+      ri.addEventListener("change", ()=>{
+        const nrk = ri.value.trim();
+        if (nrk && nrk!==rk && !(nrk in gridObj)){
+          gridObj[nrk]=gridObj[rk]; delete gridObj[rk];
+          onPricesChanged(); rerender();
+        } else { ri.value = rk; }
+      });
+      rowKeyTd.appendChild(ri);
+      tr.appendChild(rowKeyTd);
+      cols.forEach(c=>{
+        const td = el("td");
+        const vi = el("input",{type:"number", step:"0.01", value: gridObj[rk][c]==null ? "" : gridObj[rk][c]});
+        vi.addEventListener("input", ()=>{
+          const num = parseFloat(vi.value);
+          gridObj[rk][c] = isNaN(num) ? 0 : num;
+          onPricesChanged();
+        });
+        td.appendChild(vi);
+        tr.appendChild(td);
+      });
+      const delTd = el("td");
+      const delBtn = el("button",{class:"icon-btn", type:"button", title:"Удалить строку"},["✕"]);
+      delBtn.addEventListener("click", ()=>{ delete gridObj[rk]; onPricesChanged(); rerender(); });
+      delTd.appendChild(delBtn);
+      tr.appendChild(delTd);
+      tbody.appendChild(tr);
+    });
+    table.append(thead, tbody);
+    wrap.appendChild(table);
+    container.appendChild(wrap);
+    const btnRow = el("div",{style:"display:flex;gap:8px;"});
+    const addRowBtn = el("button",{class:"btn-add", type:"button"},["+ "+rowLabel.toLowerCase()]);
+    addRowBtn.addEventListener("click", ()=>{
+      let nk="новая", i=1; while (nk in gridObj) nk="новая "+(++i);
+      const obj={}; cols.forEach(c=>obj[c]=0); gridObj[nk]=obj; onPricesChanged(); rerender();
+    });
+    const addColBtn = el("button",{class:"btn-add", type:"button"},["+ "+colLabel.toLowerCase()]);
+    addColBtn.addEventListener("click", ()=>{
+      let nc="новый", i=1; while (cols.includes(nc)) nc="новый "+(++i);
+      Object.values(gridObj).forEach(row=> row[nc]=0); onPricesChanged(); rerender();
+    });
+    btnRow.append(addRowBtn, addColBtn);
+    container.appendChild(btnRow);
+  }
+  rerender();
+}
+
+// Таблица скидки за тираж: массив пар [тираж от, коэффициент]
+function renderTierEditor(container, table){
+  function rerender(){
+    container.innerHTML = "";
+    const list = el("div",{class:"kv-list"});
+    table.forEach((row, idx)=>{
+      const r = el("div",{class:"tier-row"});
+      r.appendChild(el("span",{},["от"]));
+      const ti = el("input",{type:"number", min:"0", value:row[0], style:"width:90px"});
+      ti.addEventListener("input", ()=>{ row[0]=parseFloat(ti.value)||0; onPricesChanged(); });
+      r.appendChild(ti);
+      r.appendChild(el("span",{},["шт → коэф."]));
+      const ci = el("input",{type:"number", step:"0.01", value:row[1], style:"width:90px"});
+      ci.addEventListener("input", ()=>{ row[1]=parseFloat(ci.value)||0; onPricesChanged(); });
+      r.appendChild(ci);
+      const del = el("button",{class:"icon-btn", type:"button", title:"Удалить"},["✕"]);
+      del.addEventListener("click", ()=>{ table.splice(idx,1); onPricesChanged(); rerender(); });
+      r.appendChild(del);
+      list.appendChild(r);
+    });
+    container.appendChild(list);
+    const addBtn = el("button",{class:"btn-add", type:"button"},["+ порог"]);
+    addBtn.addEventListener("click", ()=>{ table.push([0,1]); onPricesChanged(); rerender(); });
+    container.appendChild(addBtn);
+  }
+  rerender();
+}
+
+function renderNumberField(container, label, getSet){
+  const wrap = el("div",{class:"field"});
+  wrap.appendChild(el("label",{},[label]));
+  const input = el("input",{type:"number", step:"any", value:getSet()});
+  input.addEventListener("input", ()=>{
+    const num = parseFloat(input.value);
+    getSet(isNaN(num)?0:num);
+    onPricesChanged();
+  });
+  wrap.appendChild(input);
+  container.appendChild(wrap);
+}
+
+function settingsSection(title, icon, buildFn){
+  const det = el("details",{class:"settings-section"});
+  det.appendChild(el("summary",{},[icon+" "+title]));
+  const body = el("div",{class:"settings-body"});
+  buildFn(body);
+  det.appendChild(body);
+  return det;
+}
+
+function renderSettings(){
+  const root = document.getElementById("settingsRoot");
+  root.innerHTML = "";
+
+  root.appendChild(settingsSection("Реквизиты для счёта", "🧾", body=>{
+    body.appendChild(el("div",{class:"meta-note"},["Эти данные подставляются в шапку при копировании счёта клиенту."]));
+    const grid = el("div",{class:"plain-fields"});
+    [["name","Название компании"],["phone","Телефон / контакт"],["note","Доп. строка (реквизиты, сайт)"],["payment","Текст способа оплаты"]].forEach(([k,label])=>{
+      const f = el("div",{class:"field"});
+      f.appendChild(el("label",{},[label]));
+      const i = el("input",{type:"text", value:COMPANY[k]||""});
+      i.addEventListener("input", ()=>{ COMPANY[k]=i.value; persistCompany(); });
+      f.appendChild(i);
+      grid.appendChild(f);
+    });
+    body.appendChild(grid);
+  }));
+
+  root.appendChild(settingsSection("Скидка за тираж", "🎯", body=>{
+    body.appendChild(el("div",{class:"meta-note"},["Общая таблица для Печати SRA3, Визиток, Дипломов. Чем больше тираж — тем ниже коэффициент к базовой цене."]));
+    const tierC = el("div"); body.appendChild(tierC);
+    renderTierEditor(tierC, PRICES.tirazhDiscount);
+  }));
+
+  root.appendChild(settingsSection("Печать SRA3 — лист и цены", "🖨", body=>{
+    body.appendChild(el("div",{class:"settings-subtitle"},["Физический размер листа SRA3, мм"]));
+    const sizeRow = el("div",{class:"plain-fields"});
+    renderNumberField(sizeRow, "Ширина", v=>{ if(v!==undefined) PRICES.sheetSRA3.width=v; return PRICES.sheetSRA3.width; });
+    renderNumberField(sizeRow, "Высота", v=>{ if(v!==undefined) PRICES.sheetSRA3.height=v; return PRICES.sheetSRA3.height; });
+    body.appendChild(sizeRow);
+
+    body.appendChild(el("div",{class:"settings-subtitle"},["Цена за лист: плотность х цветность, ₽"]));
+    const gridC = el("div"); body.appendChild(gridC);
+    renderGridEditor(gridC, PRICES.sra3Grid, {rowLabel:"Плотность", colLabel:"Цветность"});
+
+    body.appendChild(el("div",{class:"settings-subtitle"},["Доп. услуги"]));
+    const extGrid = el("div",{class:"plain-fields"});
+    renderNumberField(extGrid, "Биг, ₽/шт", v=>{ if(v!==undefined) PRICES.sra3Extras.bigPrice=v; return PRICES.sra3Extras.bigPrice; });
+    renderNumberField(extGrid, "Брошюровка скобами, ₽/шт", v=>{ if(v!==undefined) PRICES.sra3Extras.staple=v; return PRICES.sra3Extras.staple; });
+    renderNumberField(extGrid, "Брошюровка пружиной, ₽/мм", v=>{ if(v!==undefined) PRICES.sra3Extras.spring=v; return PRICES.sra3Extras.spring; });
+    body.appendChild(extGrid);
+    body.appendChild(el("div",{class:"settings-subtitle"},["Резка по контуру — цена по порогам, ₽/шт"]));
+    const contourC=el("div"); body.appendChild(contourC);
+    renderMapEditor(contourC, PRICES.sra3Extras.contourCut, {step:1, newKeyBase:"порог"});
+
+    body.appendChild(el("div",{class:"settings-subtitle"},["Ламинация — тип плёнки, ₽/лист А4"]));
+    const lamC = el("div"); body.appendChild(lamC);
+    renderMapEditor(lamC, PRICES.lamination.types, {step:1});
+
+    body.appendChild(el("div",{class:"settings-subtitle"},["Ламинация — покрытие, ₽/лист А4"]));
+    const finC = el("div"); body.appendChild(finC);
+    renderMapEditor(finC, PRICES.lamination.finish, {step:1});
+  }));
+
+  root.appendChild(settingsSection("Стандартные форматы изделия, мм", "📐", body=>{
+    body.appendChild(el("div",{class:"meta-note"},["Используются в выпадающем списке «Формат изделия» для Печати SRA3."]));
+    const c = el("div"); body.appendChild(c);
+    renderSubfieldMapEditor(c, PRICES.formats, [{key:"w",label:"Ширина"},{key:"h",label:"Высота"}], {newKeyBase:"Формат"});
+  }));
+
+  root.appendChild(settingsSection("Визитки / Дипломы", "🏷", body=>{
+    const grid = el("div",{class:"plain-fields"});
+    renderNumberField(grid, "Визитки, ₽/шт", v=>{ if(v!==undefined) PRICES.businessCards.pricePerItem=v; return PRICES.businessCards.pricePerItem; });
+    renderNumberField(grid, "Дипломы/грамоты, ₽/шт", v=>{ if(v!==undefined) PRICES.diplomas.pricePerItem=v; return PRICES.diplomas.pricePerItem; });
+    body.appendChild(grid);
+  }));
+
+  root.appendChild(settingsSection("ПВХ", "🟦", body=>{
+    body.appendChild(el("div",{class:"settings-subtitle"},["Цена за м² по толщине"]));
+    const c1=el("div"); body.appendChild(c1); renderMapEditor(c1, PRICES.pvc.thickness, {step:1, newKeyBase:"толщина"});
+    body.appendChild(el("div",{class:"settings-subtitle"},["Коэффициент по типу резки"]));
+    const c2=el("div"); body.appendChild(c2); renderMapEditor(c2, PRICES.pvc.cutType, {step:0.1, newKeyBase:"тип резки"});
+    body.appendChild(el("div",{class:"settings-subtitle"},["Карманы для стендов, ₽/шт"]));
+    const c3=el("div"); body.appendChild(c3); renderMapEditor(c3, PRICES.pvc.pockets, {step:1, newKeyBase:"формат"});
+  }));
+
+  root.appendChild(settingsSection("Акрил", "🔷", body=>{
+    body.appendChild(el("div",{class:"settings-subtitle"},["Цена за м² по толщине (обычные изделия из листа)"]));
+    const c=el("div"); body.appendChild(c); renderMapEditor(c, PRICES.acrylic.thickness, {step:1, newKeyBase:"толщина"});
+    body.appendChild(el("div",{class:"settings-subtitle"},["Медали — фикс. цена за шт: толщина пластика × размер"]));
+    const c2=el("div"); body.appendChild(c2); renderGridEditor(c2, PRICES.medals, {rowLabel:"Толщина", colLabel:"Размер"});
+    body.appendChild(el("div",{class:"meta-note"},["Пустая ячейка = такого сочетания толщины и размера нет."]));
+  }));
+
+  root.appendChild(settingsSection("Композит", "🟫", body=>{
+    const grid=el("div",{class:"plain-fields"});
+    renderNumberField(grid, "Цена, ₽/м²", v=>{ if(v!==undefined) PRICES.composite.pricePerM2=v; return PRICES.composite.pricePerM2; });
+    body.appendChild(grid);
+  }));
+
+  root.appendChild(settingsSection("Самоклейка", "🏷", body=>{
+    const grid = el("div",{class:"plain-fields"});
+    renderNumberField(grid, "Цена, ₽/м²", v=>{ if(v!==undefined) PRICES.selfAdhesive.pricePerM2=v; return PRICES.selfAdhesive.pricePerM2; });
+    body.appendChild(grid);
+    body.appendChild(el("div",{class:"settings-subtitle"},["Коэффициент по типу резки"]));
+    const c2=el("div"); body.appendChild(c2); renderMapEditor(c2, PRICES.selfAdhesive.cutType, {step:0.1, newKeyBase:"тип резки"});
+    body.appendChild(el("div",{class:"settings-subtitle"},["Готовые форматы (стикерпаки) — размер, мм + фикс. цена, ₽"]));
+    const c3=el("div"); body.appendChild(c3);
+    renderSubfieldMapEditor(c3, PRICES.selfAdhesive.presets, [{key:"w",label:"Ширина"},{key:"h",label:"Высота"},{key:"price",label:"Цена,₽"}], {newKeyBase:"Стикерпак"});
+    body.appendChild(el("div",{class:"settings-subtitle"},["Мелкий формат «<10см» — расчёт по площади рулона"]));
+    const grid2 = el("div",{class:"plain-fields"});
+    renderNumberField(grid2, "Ширина рулона, мм", v=>{ if(v!==undefined) PRICES.selfAdhesive.smallRoll.rollWidth=v; return PRICES.selfAdhesive.smallRoll.rollWidth; });
+    renderNumberField(grid2, "Вылет с каждой стороны, мм", v=>{ if(v!==undefined) PRICES.selfAdhesive.smallRoll.edgeMargin=v; return PRICES.selfAdhesive.smallRoll.edgeMargin; });
+    renderNumberField(grid2, "Зазор между наклейками, мм (по умолч.)", v=>{ if(v!==undefined) PRICES.selfAdhesive.smallRoll.gap=v; return PRICES.selfAdhesive.smallRoll.gap; });
+    body.appendChild(grid2);
+    body.appendChild(el("div",{class:"meta-note"},["Зазор можно переопределить под конкретный заказ прямо в калькуляторе — здесь задаётся только значение по умолчанию."]));
+  }));
+
+  root.appendChild(settingsSection("ДТФ (DTF)", "👕", body=>{
+    const grid0 = el("div",{class:"plain-fields"});
+    renderNumberField(grid0, "Свободный размер, ₽/м²", v=>{ if(v!==undefined) PRICES.dtf.freePerM2=v; return PRICES.dtf.freePerM2; });
+    renderNumberField(grid0, "Минимум за одно нанесение, ₽", v=>{ if(v!==undefined) PRICES.dtf.minPrice=v; return PRICES.dtf.minPrice; });
+    body.appendChild(grid0);
+    body.appendChild(el("div",{class:"settings-subtitle"},["Фиксированные форматы, ₽/шт"]));
+    const c=el("div"); body.appendChild(c); renderMapEditor(c, PRICES.dtf.fixed, {step:1, newKeyBase:"формат"});
+    body.appendChild(el("div",{class:"settings-subtitle"},["Изделия «наш материал» — цена изделия, ₽"]));
+    const cItems=el("div"); body.appendChild(cItems); renderMapEditor(cItems, PRICES.dtf.ourItems, {step:1, newKeyBase:"изделие"});
+    body.appendChild(el("div",{class:"meta-note"},["Свободный размер используется и для расчёта «Сублимации». На одном изделии можно несколько зон печати — каждая не дешевле минимума, итог в одну позицию счёта."]));
+  }));
+
+  root.appendChild(settingsSection("Сублимация", "🎨", body=>{
+    body.appendChild(el("div",{class:"settings-subtitle"},["База по типу изделия, ₽"]));
+    const c=el("div"); body.appendChild(c); renderMapEditor(c, PRICES.sublimation.base, {step:1, newKeyBase:"изделие"});
+  }));
+
+  root.appendChild(settingsSection("Баннер", "🚩", body=>{
+    body.appendChild(el("div",{class:"settings-subtitle"},["Цена за м² по плотности"]));
+    const c1=el("div"); body.appendChild(c1); renderMapEditor(c1, PRICES.banner.density, {step:1, newKeyBase:"плотность"});
+    body.appendChild(el("div",{class:"settings-subtitle"},["Формула отделки люверсами (как в исходном файле)"]));
+    const grid = el("div",{class:"plain-fields"});
+    renderNumberField(grid, "База, ₽", v=>{ if(v!==undefined) PRICES.banner.eyeletBasePrice=v; return PRICES.banner.eyeletBasePrice; });
+    renderNumberField(grid, "Делитель, м", v=>{ if(v!==undefined) PRICES.banner.eyeletDivisor=v; return PRICES.banner.eyeletDivisor; });
+    renderNumberField(grid, "Коэф. «люверс+проклейка»", v=>{ if(v!==undefined) PRICES.banner.eyeletFactorFull=v; return PRICES.banner.eyeletFactorFull; });
+    renderNumberField(grid, "Коэф. «проклейка»", v=>{ if(v!==undefined) PRICES.banner.eyeletFactorGlueOnly=v; return PRICES.banner.eyeletFactorGlueOnly; });
+    body.appendChild(grid);
+    body.appendChild(el("div",{class:"settings-subtitle"},["Ролл Ап, ₽"]));
+    const c2=el("div"); body.appendChild(c2); renderMapEditor(c2, PRICES.banner.rollUp, {step:1, newKeyBase:"опция"});
+  }));
+
+  root.appendChild(settingsSection("Холсты", "🖼", body=>{
+    const c=el("div"); body.appendChild(c); renderMapEditor(c, PRICES.canvas, {step:1, newKeyBase:"тип"});
+  }));
+
+  root.appendChild(settingsSection("Постер (А2+)", "🖼", body=>{
+    renderNumberField(body, "Цена, ₽/м²", v=>{ if(v!==undefined) PRICES.poster.pricePerM2=v; return PRICES.poster.pricePerM2; });
+  }));
+
+  root.appendChild(settingsSection("Блокноты", "📓", body=>{
+    renderNumberField(body, "Листов в блокноте (множитель)", v=>{ if(v!==undefined) PRICES.notebooks.sheetsCount=v; return PRICES.notebooks.sheetsCount; });
+    body.appendChild(el("div",{class:"settings-subtitle"},["Компоненты по форматам, ₽ — строки = компоненты, столбцы = форматы"]));
+    const c=el("div"); body.appendChild(c);
+    renderGridEditor(c, PRICES.notebooks.components, {rowLabel:"Компонент", colLabel:"Формат"});
+  }));
+}
+
+/* =========================================================================
+   7. ИНИЦИАЛИЗАЦИЯ, ВКЛАДКИ, КНОПКИ
+   ========================================================================= */
+function switchTab(tab){
+  document.querySelectorAll(".tab-btn").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
+  document.querySelectorAll(".tab-panel").forEach(p=> p.classList.toggle("active", p.id==="tab-"+tab));
+}
+
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=> switchTab(btn.dataset.tab));
+});
+
+document.getElementById("btnCopyServices").addEventListener("click", copyServices);
+document.getElementById("btnCopyGoods").addEventListener("click", copyGoods);
+document.getElementById("btnCopyServicesNP").addEventListener("click", copyServicesNP);
+document.getElementById("btnCopyGoodsNP").addEventListener("click", copyGoodsNP);
+document.getElementById("btnPrintInvoice").addEventListener("click", ()=> window.print());
+document.getElementById("btnClearInvoice").addEventListener("click", ()=>{
+  if (!INVOICE.length) return;
+  if (confirm("Очистить весь счёт?")){ INVOICE = []; persistInvoice(); renderInvoice(); updateInvoiceBadge(); }
+});
+
+document.getElementById("clAddBtn").addEventListener("click", ()=>{
+  const nameEl = document.getElementById("clName");
+  const qtyEl = document.getElementById("clQty");
+  const priceEl = document.getElementById("clPrice");
+  const name = nameEl.value.trim();
+  const qty = parseFloat(qtyEl.value);
+  const price = parseFloat(priceEl.value);
+  if (!name){ toast("Укажи название позиции"); return; }
+  if (isNaN(qty) || qty<=0){ toast("Укажи количество"); return; }
+  if (isNaN(price) || price<0){ toast("Укажи цену"); return; }
+  const roundedPrice = Math.ceil(price);
+  const clType = document.getElementById("clType").value;
+  INVOICE.push({id:uid(), name, goodsName:name, qty, unitPrice:roundedPrice, total:roundedPrice*qty, invoiceType:clType});
+  persistInvoice(); renderInvoice(); updateInvoiceBadge();
+  nameEl.value=""; qtyEl.value="1"; priceEl.value="";
+  toast("Добавлено: "+name);
+});
+
+document.getElementById("btnResetPrices").addEventListener("click", ()=>{
+  if (confirm("Сбросить все цены к заводским значениям? Свои изменения в настройках будут потеряны.")){
+    PRICES = clone(DEFAULT_PRICES);
+    persistPrices();
+    renderSettings();
+    renderProductForm();
+    toast("Цены сброшены к заводским");
+  }
+});
+document.getElementById("btnExportPrices").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(PRICES, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "tipografia-prices.json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+document.getElementById("btnImportPrices").addEventListener("click", ()=> document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      PRICES = deepMerge(DEFAULT_PRICES, data);
+      persistPrices(); renderSettings(); renderProductForm();
+      toast("Настройки цен импортированы");
+    }catch(err){ alert("Не удалось прочитать файл: это должен быть JSON, экспортированный этим же приложением."); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+renderProductNav();
+renderProductForm();
+renderInvoice();
+updateInvoiceBadge();
+renderSettings();
+
+</script>
+</body>
+</html>
